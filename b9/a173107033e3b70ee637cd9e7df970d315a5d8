@@ -1,0 +1,292 @@
+mobile/src/core/date.ts
+  h_17434a609f5d39 1-27
+mobile/src/ui/theme.ts
+  h_17434a609f5d39 1-65
+docs/systems/object-storage-requirements.md
+  h_17434a609f5d39 1-43
+mobile/src/app/(app)/profile/_layout.tsx
+  h_17434a609f5d39 1-17
+infra/README.md
+  h_17434a609f5d39 1-80
+docs/systems/monitoring-logging-requirements.md
+  h_17434a609f5d39 1-26
+infra/redis/redis.conf
+  h_17434a609f5d39 1-17
+infra/scripts/generate-dev-env.sh
+  s_e455333bb7e9ed::t_912027340ae5c4 1-24
+mobile/src/core/api/endpoints.ts
+  h_17434a609f5d39 1-110
+infra/vault/scripts/bootstrap.sh
+  h_17434a609f5d39 1-149
+mobile/eslint.config.js
+  s_e455333bb7e9ed::t_05df091f97718e 1-10
+mobile/src/core/offline/sqliteOutboxStore.ts
+  h_17434a609f5d39 1-89
+docs/systems/malware-scanner-requirements.md
+  h_17434a609f5d39 1-26
+mobile/src/core/rbac/permissions.ts
+  h_17434a609f5d39 1-68
+mobile/src/features/feed/FeedEntryRow.tsx
+  h_17434a609f5d39 1-69
+mobile/src/app/(app)/meals.tsx
+  s_10bd1fa3244f6c::t_951b3fbef44e45 1-180
+mobile/src/core/api/client.ts
+  h_17434a609f5d39 1-60
+mobile/src/ui/OutboxIndicator.tsx
+  h_17434a609f5d39 1-34
+mobile/src/features/auth/__tests__/phone-test.ts
+  h_17434a609f5d39 1-26
+infra/object-storage/init-buckets.sh
+  h_17434a609f5d39 1-34
+mobile/src/app/_layout.tsx
+  h_17434a609f5d39 1-59
+mobile/src/app/verify-pickup/[id].tsx
+  h_17434a609f5d39 1-129
+mobile/src/features/meals/MealChildRow.tsx
+  h_17434a609f5d39 1-62
+mobile/src/app/(onboarding)/_layout.tsx
+  h_17434a609f5d39 1-12
+mobile/src/core/api/types.ts
+  h_17434a609f5d39 1-155
+mobile/src/ui/Button.tsx
+  h_17434a609f5d39 1-46
+mobile/README.md
+  h_17434a609f5d39 1-82
+mobile/src/app/(app)/profile/requests.tsx
+  s_10bd1fa3244f6c::t_4711d724adbe72 1-117
+mobile/src/core/auth/__tests__/tokens-test.ts
+  s_d7d7c3e588b8ea::t_12cbfbb56999d7 1-78
+mobile/src/app/(app)/profile/index.tsx
+  h_17434a609f5d39 1-109
+mobile/src/ui/ListRow.tsx
+  h_17434a609f5d39 1-52
+mobile/src/core/session/sessionStore.ts
+  s_d7d7c3e588b8ea::t_552867e80da68f 1-96
+mobile/src/core/query.ts
+  s_d7d7c3e588b8ea::t_2a7482a90b39f4 1-28
+mobile/src/features/auth/phone.ts
+  h_17434a609f5d39 1-26
+docs/systems/postgresql-requirements.md
+  h_17434a609f5d39 1-46
+infra/docker-compose.yml
+  h_17434a609f5d39 1-202
+mobile/LICENSE
+  h_17434a609f5d39 1-21
+mobile/src/__tests__/app-flow-test.tsx
+  h_17434a609f5d39 1-127
+docs/systems/push-delivery-requirements.md
+  h_17434a609f5d39 1-26
+mobile/src/app/(auth)/login.tsx
+  s_10bd1fa3244f6c::t_f9b38c2b8a6270 1-107
+docs/systems/media-processing-requirements.md
+  h_17434a609f5d39 1-30
+mobile/src/features/pickup/TeacherPickupQueue.tsx
+  h_17434a609f5d39 1-101
+mobile/src/features/meals/__tests__/mealEntry-test.ts
+  h_17434a609f5d39 1-74
+mobile/.claude/settings.json
+  h_17434a609f5d39 1-5
+docs/systems/README.md
+  h_17434a609f5d39 1-119
+mobile/src/features/auth/otpFlow.ts
+  h_17434a609f5d39 1-23
+mobile/src/core/api/mock/seed.ts
+  h_17434a609f5d39 1-187
+mobile/src/core/api/mock/mockServer.ts
+  h_17434a609f5d39 1-545
+school-parent-communication-requirements.md
+  h_17434a609f5d39 1-593
+mobile/src/ui/StateViews.tsx
+  h_17434a609f5d39 1-45
+mobile/src/core/api/mock/__tests__/mockServer-test.ts
+  h_17434a609f5d39 1-188
+mobile/app.json
+  s_e455333bb7e9ed::t_77b539372f667a 1-64
+.gitignore
+  h_17434a609f5d39 1-46
+mobile/src/features/consent/ConsentEditor.tsx
+  h_17434a609f5d39 1-83
+docs/systems/ingress-network-requirements.md
+  h_17434a609f5d39 1-37
+mobile/src/core/consent/__tests__/consent-test.ts
+  s_d7d7c3e588b8ea::t_45a58d923146b9 1-34
+infra/postgres/initdb/01-roles.sh
+  h_17434a609f5d39 1-51
+mobile/src/core/i18n/i18next.d.ts
+  h_17434a609f5d39 1-10
+docs/systems/sms-provider-requirements.md
+  h_17434a609f5d39 1-26
+mobile/src/features/pickup/pickupRules.ts
+  h_17434a609f5d39 1-23
+mobile/src/app/(onboarding)/consents.tsx
+  s_10bd1fa3244f6c::t_9de123e81c543e 1-23
+mobile/src/core/api/httpTransport.ts
+  h_17434a609f5d39 1-42
+docs/systems/opentelemetry-requirements.md
+  h_17434a609f5d39 1-24
+mobile/src/ui/Card.tsx
+  h_17434a609f5d39 1-20
+mobile/src/ui/ChildSwitcher.tsx
+  h_17434a609f5d39 1-27
+infra/vault/policies/kvkk-ops.hcl
+  h_17434a609f5d39 1-15
+mobile/src/features/consent/ConsentCard.tsx
+  h_17434a609f5d39 1-51
+mobile/src/core/privacy/logger.ts
+  h_17434a609f5d39 1-24
+docs/systems/vault-requirements.md
+  h_17434a609f5d39 1-46
+mobile/src/app/(app)/pickup.tsx
+  s_10bd1fa3244f6c::t_a9fd9c90d07d13 1-26
+mobile/src/features/pickup/ParentPickup.tsx
+  h_17434a609f5d39 1-167
+mobile/src/core/i18n/tr.ts
+  h_17434a609f5d39 1-251
+mobile/AGENTS.md
+  h_17434a609f5d39 1-41
+infra/vault/policies/okuldayim-backend.hcl
+  h_17434a609f5d39 1-63
+docs/systems/redis-requirements.md
+  h_17434a609f5d39 1-38
+mobile/package.json
+  s_e455333bb7e9ed::t_33ae7ea62c4ae6 1-61
+docs/systems/sentry-requirements.md
+  h_17434a609f5d39 1-26
+mobile/src/core/api/transport.ts
+  h_17434a609f5d39 1-22
+mobile/src/core/i18n/index.ts
+  h_17434a609f5d39 1-34
+mobile/src/app/index.tsx
+  h_17434a609f5d39 1-18
+mobile/src/core/api/__tests__/client-test.ts
+  s_d7d7c3e588b8ea::t_5ca8e0716749bf 1-62
+mobile/src/ui/TextField.tsx
+  h_17434a609f5d39 1-48
+mobile/src/core/auth/tokens.ts
+  h_17434a609f5d39 1-93
+mobile/src/ui/ChoiceChips.tsx
+  h_17434a609f5d39 1-76
+README.md
+  h_17434a609f5d39 1-26
+infra/.gitignore
+  h_17434a609f5d39 1-3
+mobile/tsconfig.json
+  s_d7d7c3e588b8ea::t_0838fe7a3f7ae9 1-19
+mobile/src/core/offline/index.ts
+  s_d7d7c3e588b8ea::t_a14602f8a51ce8 1-44
+mobile/src/app/(app)/profile/privacy.tsx
+  s_10bd1fa3244f6c::t_d52230ace9327a 1-74
+docs/archive/requirements-analysis-v1.0-original.md
+  s_10bd1fa3244f6c::t_7fff54c3f07bf6 1-373
+mobile/src/features/pickup/__tests__/pickupRules-test.ts
+  h_17434a609f5d39 1-37
+docs/backend-requirements-analysis.md
+  h_17434a609f5d39 1-1114
+mobile/src/app/(app)/_layout.tsx
+  h_17434a609f5d39 1-69
+mobile/src/core/rbac/__tests__/permissions-test.ts
+  s_d7d7c3e588b8ea::t_fd56467895181e 1-33
+mobile/src/ui/AppText.tsx
+  h_17434a609f5d39 1-32
+mobile/src/core/api/errorMessage.ts
+  s_d7d7c3e588b8ea::t_37c07034ddf272 1-16
+mobile/src/app/(onboarding)/privacy-notice.tsx
+  s_10bd1fa3244f6c::t_b3299542607202 1-56
+mobile/src/core/offline/memoryOutboxStore.ts
+  h_17434a609f5d39 1-33
+mobile/src/core/privacy/redact.ts
+  h_17434a609f5d39 1-45
+mobile/src/core/privacy/useSensitiveScreen.ts
+  s_d7d7c3e588b8ea::t_093ff097d123be 1-27
+mobile/src/core/offline/database.ts
+  h_17434a609f5d39 1-104
+mobile/src/core/offline/__tests__/outbox-test.ts
+  h_17434a609f5d39 1-97
+infra/object-storage/lifecycle-1-day.json
+  s_10bd1fa3244f6c::t_bce1d25d90a83c 1-11
+docs/systems/backup-recovery-requirements.md
+  h_17434a609f5d39 1-50
+mobile/jest.setup.js
+  h_17434a609f5d39 1-6
+mobile/src/core/i18n/en.ts
+  h_17434a609f5d39 1-250
+mobile/src/features/meals/mealEntry.ts
+  h_17434a609f5d39 1-65
+mobile/src/core/api/index.ts
+  s_d7d7c3e588b8ea::t_1d0757c729c915 1-17
+mobile/src/app/(app)/feed.tsx
+  s_10bd1fa3244f6c::t_38c34f184660c0 1-54
+mobile/src/features/privacy/NoticeView.tsx
+  h_17434a609f5d39 1-50
+infra/.env.example
+  h_17434a609f5d39 1-23
+mobile/src/ui/Banner.tsx
+  h_17434a609f5d39 1-41
+mobile/src/core/config.ts
+  h_17434a609f5d39 1-16
+mobile/src/app/(auth)/verify-otp.tsx
+  s_10bd1fa3244f6c::t_bb665b8c1e652c 1-132
+docs/systems/email-delivery-requirements.md
+  h_17434a609f5d39 1-26
+docs/systems/application-runtime-requirements.md
+  h_17434a609f5d39 1-39
+mobile/src/core/offline/outbox.ts
+  s_d7d7c3e588b8ea::t_ca48adeb2e44ed 1-136
+infra/vault/config/vault.hcl
+  h_17434a609f5d39 1-21
+mobile/src/core/session/sessionService.ts
+  s_d7d7c3e588b8ea::t_efecc4fcf65edb 1-109
+mobile/src/core/api/errors.ts
+  h_17434a609f5d39 1-80
+mobile/src/core/offline/OutboxSync.tsx
+  s_d7d7c3e588b8ea::t_0104d0cd83a763 1-32
+mobile/src/app/(auth)/_layout.tsx
+  h_17434a609f5d39 1-5
+mobile/src/core/consent/consent.ts
+  h_17434a609f5d39 1-28
+mobile/src/core/privacy/__tests__/redact-test.ts
+  s_d7d7c3e588b8ea::t_39366882bdfb31 1-40
+mobile/src/ui/Screen.tsx
+  h_17434a609f5d39 1-35
+mobile/src/features/consent/__tests__/ConsentCard-test.tsx
+  h_17434a609f5d39 1-47
+mobile/src/core/auth/secureStorage.ts
+  h_17434a609f5d39 1-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b9a173107033e3b70ee637cd9e7df970d315a5d8",
+  "prompts": {},
+  "humans": {
+    "h_17434a609f5d39": {
+      "author": "TURKCELL\\TCAARAS <ali.aras@turkcell.com.tr>"
+    }
+  },
+  "sessions": {
+    "s_10bd1fa3244f6c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a18344-2ae3-75d3-9744-646ec52619b4",
+        "model": "codex-auto-review"
+      },
+      "human_author": "TURKCELL\\TCAARAS <ali.aras@turkcell.com.tr>"
+    },
+    "s_d7d7c3e588b8ea": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17f77-e044-7482-8a60-deadcde3ce37",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "TURKCELL\\TCAARAS <ali.aras@turkcell.com.tr>"
+    },
+    "s_e455333bb7e9ed": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9d4bc95e-9bcf-4783-8a84-2494be650798",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "TURKCELL\\TCAARAS <ali.aras@turkcell.com.tr>"
+    }
+  }
+}
