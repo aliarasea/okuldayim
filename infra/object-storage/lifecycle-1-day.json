@@ -1,0 +1,11 @@
+{
+  "Rules": [
+    {
+      "ID": "kvkk-gecici-dosyalar-1-gun",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "" },
+      "Expiration": { "Days": 1 },
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 1 }
+    }
+  ]
+}
