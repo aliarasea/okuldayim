@@ -1,0 +1,152 @@
+backend/apps/api/Cargo.toml
+  s_c5d615eb7c5dc8::t_c42667be0414ea 1-20
+  s_c5d615eb7c5dc8::t_d73a19f2e5766b 21
+backend/apps/api/src/integrations/redis.rs
+  s_c5d615eb7c5dc8::t_7101cdb96a5413 25-26
+  s_c5d615eb7c5dc8::t_cb90e80d807962 1-24,27-51
+backend/apps/api/src/lib.rs
+  s_c5d615eb7c5dc8::t_1935753cc231c8 1-4
+infra/.env.example
+  s_c5d615eb7c5dc8::t_c11b2cd36f01ee 30-31
+  s_c5d615eb7c5dc8::t_aca040c7bf93e5 16-21
+infra/vault/policies/okuldayim-backend.hcl
+  s_c5d615eb7c5dc8::t_758f0b5e3489df 38-48,68-78,86-90
+infra/postgres/migrate.sh
+  s_c5d615eb7c5dc8::t_f07efea122c01d 1-19,28-83
+  s_c5d615eb7c5dc8::t_0e936c73ab71c1 20-27
+backend/apps/api/src/integrations/mod.rs
+  s_c5d615eb7c5dc8::t_cb90e80d807962 1-3
+docs/systems/vault-requirements.md
+  s_c5d615eb7c5dc8::t_e69fe4b7bb16d7 44
+docs/systems/application-runtime-requirements.md
+  s_c5d615eb7c5dc8::t_e501fdf165a251 9
+infra/postgres/migrations/0001_initial_schema.sql
+  s_c5d615eb7c5dc8::t_b6b837d8cc5754 1-1234
+docs/systems/README.md
+  s_c5d615eb7c5dc8::t_aca040c7bf93e5 19
+  s_c5d615eb7c5dc8::t_4ce1960f575f31 3,5,9,13-15,18,119
+infra/README.md
+  s_c5d615eb7c5dc8::t_146f4ddfd6a7b8 31
+  s_c5d615eb7c5dc8::t_161491d1f6af63 23-26,29,39,57-59,85
+  s_c5d615eb7c5dc8::t_e65a33c63fb5e4 41
+  s_c5d615eb7c5dc8::t_aca040c7bf93e5 44-45,54,81,87,111
+  s_c5d615eb7c5dc8::t_1e316f95ab2551 5
+  s_c5d615eb7c5dc8::t_c11b2cd36f01ee 3,21,33,40,63,84,90-91
+  s_c5d615eb7c5dc8::t_af7047dffcd026 7,9-11,15-16,18-20,22,35,37-38,42-43,47,49,51-53,55-56,60-62,64-66,68,70,72-75,77,79,82-83,86,88-89,92-95,98-99,102-110,113
+docs/systems/sms-provider-requirements.md
+  s_c5d615eb7c5dc8::t_aca040c7bf93e5 1,9-21,38
+  s_c5d615eb7c5dc8::t_fc5838b6b50432 3
+docs/systems/postgresql-requirements.md
+  s_c5d615eb7c5dc8::t_e751339ad8e6bf 15,18,30
+  s_c5d615eb7c5dc8::t_e69fe4b7bb16d7 44
+  s_c5d615eb7c5dc8::t_161491d1f6af63 9
+backend/apps/api/src/integrations/postgres.rs
+  s_c5d615eb7c5dc8::t_7101cdb96a5413 6,9,13,57,143-151,155-159,172-176,192-193,238-241
+  s_c5d615eb7c5dc8::t_7dbd51c435c1aa 49,220
+  s_c5d615eb7c5dc8::t_d73a19f2e5766b 1-5,7-8,10-12,14-48,50-56,58-142,152-154,160-171,177-191,194-219,221-237,242-256
+README.md
+  s_c5d615eb7c5dc8::t_9c23e73d30e00c 9,11-12,19,27
+  s_c5d615eb7c5dc8::t_8505af2c503781 25
+backend/apps/api/src/main.rs
+  s_c5d615eb7c5dc8::t_99b8102a7bc7a6 63
+  s_c5d615eb7c5dc8::t_0b72f7068879d7 28-37
+  s_c5d615eb7c5dc8::t_1935753cc231c8 10-11
+  s_c5d615eb7c5dc8::t_7101cdb96a5413 80
+  s_c5d615eb7c5dc8::t_8d05b1c03f4e20 40
+  s_c5d615eb7c5dc8::t_fa8131d0333ccc 42-51
+  s_c5d615eb7c5dc8::t_d46dd8d1366ec6 1-9,12-27,38-39,41,52,54-62,64-79,81-99
+  s_c5d615eb7c5dc8::t_7dbd51c435c1aa 53
+backend/README.md
+  s_c5d615eb7c5dc8::t_c42667be0414ea 1-2,4-6,8-9,15-16,18,20,27-28
+  s_c5d615eb7c5dc8::t_aca040c7bf93e5 21-22,29
+  s_c5d615eb7c5dc8::t_c11b2cd36f01ee 3,7,10-14,17,19,23-26
+docs/systems/redis-requirements.md
+  s_c5d615eb7c5dc8::t_e69fe4b7bb16d7 38
+infra/postgres/migrations/0000_migration_ledger.sql
+  s_c5d615eb7c5dc8::t_f07efea122c01d 1-12
+backend/.dockerignore
+  s_c5d615eb7c5dc8::t_c42667be0414ea 1-5
+backend/Dockerfile
+  s_c5d615eb7c5dc8::t_c11b2cd36f01ee 8
+  s_c5d615eb7c5dc8::t_c42667be0414ea 1-7,9-15
+backend/apps/api/src/config.rs
+  s_c5d615eb7c5dc8::t_94c2a32653934a 1-2,4-20,22-26,28-39,45-48,52-59,63-71,89,92,96-101,103-110,112-116,139,141-150,154-171,175-184,195,202,204-213,217-223,295
+  s_c5d615eb7c5dc8::t_99b8102a7bc7a6 3,197,244
+  s_c5d615eb7c5dc8::t_8d05b1c03f4e20 21,79,81-88,102,117-138,140,278-286
+  s_c5d615eb7c5dc8::t_61aa9fe2c2f306 27,72,111,189,196,198-201
+  s_c5d615eb7c5dc8::t_0b72f7068879d7 80,287-293
+  s_c5d615eb7c5dc8::t_7101cdb96a5413 40-44,49-51,60-62,73-78,90-91,93-95,151-152,172-174,192-194,214-216,224-238,249-266
+  s_c5d615eb7c5dc8::t_790cb4ea57267d 153,185-188,190-191,203,239-243,245-248,267-277,294
+backend/Cargo.toml
+  s_c5d615eb7c5dc8::t_c42667be0414ea 1-13
+backend/apps/api/src/integrations/vault.rs
+  s_c5d615eb7c5dc8::t_7101cdb96a5413 7,56-61,88-91,149-153,164-167,179-182,209-212,231-234,238-242,259-262
+  s_c5d615eb7c5dc8::t_52a9aaa494ea40 12
+  s_c5d615eb7c5dc8::t_0b72f7068879d7 11
+  s_c5d615eb7c5dc8::t_cb90e80d807962 1-6,8-10,13-44,46-55,62-87,92-120,134-135,137-148,154-163,168-178,183-208,213-230,235-237,243-258,263-302,305
+  s_c5d615eb7c5dc8::t_8d05b1c03f4e20 45,121-133,136,303-304
+infra/redis/redis.conf
+  s_c5d615eb7c5dc8::t_758f0b5e3489df 16-18
+backend/.gitignore
+  s_c5d615eb7c5dc8::t_7b95a12f70a168 1-3
+infra/vault/scripts/bootstrap.sh
+  s_c5d615eb7c5dc8::t_ef9951587a68b1 135
+  s_c5d615eb7c5dc8::t_aca040c7bf93e5 112-124
+  s_c5d615eb7c5dc8::t_fd32a4e6c9a00f 180-182
+  s_c5d615eb7c5dc8::t_758f0b5e3489df 94,96,125-134,136-137
+  s_c5d615eb7c5dc8::t_63dc2d450333f0 11,13,179
+  s_c5d615eb7c5dc8::t_b20d6df43b72d4 138
+infra/docker-compose.yml
+  s_c5d615eb7c5dc8::t_20bbf72b2d3009 152-153,159-167,171-175,178-191,193-202,205-212,284
+  s_c5d615eb7c5dc8::t_fd32a4e6c9a00f 170
+  s_c5d615eb7c5dc8::t_7022602285577c 168-169
+  s_c5d615eb7c5dc8::t_6fd92312324b4c 203-204
+  s_c5d615eb7c5dc8::t_e65a33c63fb5e4 83-84
+  s_c5d615eb7c5dc8::t_aca040c7bf93e5 145-146,192
+  s_c5d615eb7c5dc8::t_f07efea122c01d 57-78
+  s_c5d615eb7c5dc8::t_7dbd51c435c1aa 176-177
+backend/apps/api/src/http.rs
+  s_c5d615eb7c5dc8::t_f941f1a9131f63 153-159,163-166
+  s_c5d615eb7c5dc8::t_7101cdb96a5413 4,6,12,81-82,94-98,107-111,140-143,146-148,168-171
+  s_c5d615eb7c5dc8::t_1935753cc231c8 15
+  s_c5d615eb7c5dc8::t_0b72f7068879d7 62-66
+  s_c5d615eb7c5dc8::t_a4605347ac1935 1-3,5,7-11,13-14,17-24,26-42,44-56,67-80,83-93,99,105-106,112-120,122-139,144-145,149-152,160-162,167,172-173
+  s_c5d615eb7c5dc8::t_8d05b1c03f4e20 25,43,57-61,100-104,121
+  s_c5d615eb7c5dc8::t_52a9aaa494ea40 16
+docs/backend-requirements-analysis.md
+  s_c5d615eb7c5dc8::t_63b53ffa585fce 1038
+  s_c5d615eb7c5dc8::t_4da3c3895ac283 225-226,228,262
+  s_c5d615eb7c5dc8::t_357f7fa7384f67 7,35,71,161,826,828,833-834
+  s_c5d615eb7c5dc8::t_aca040c7bf93e5 34,854,1094
+  s_c5d615eb7c5dc8::t_e751339ad8e6bf 229-230,237,322,406,523,527-554,558
+  s_c5d615eb7c5dc8::t_9ff41f67c4e8c0 293,514,560,741
+  s_c5d615eb7c5dc8::t_8a1945598dae0e 162
+backend/apps/api/src/integrations/sms.rs
+  s_c5d615eb7c5dc8::t_dcdd6fdb0feab8 3
+  s_c5d615eb7c5dc8::t_ff3dfd18f4d515 130,132-134
+  s_c5d615eb7c5dc8::t_0b72f7068879d7 45,80-84,139-140,149,153-156,176-181,188-190,196-198,226-229,231-234,265-266,268-269
+  s_c5d615eb7c5dc8::t_78bde8881b7e70 1,151
+  s_c5d615eb7c5dc8::t_a3e192b2dd7a9e 98-99
+  s_c5d615eb7c5dc8::t_fc5838b6b50432 54,56
+  s_c5d615eb7c5dc8::t_8d05b1c03f4e20 2,4-44,46-53,55,57-79,85-97,100-129,131,135-138,141-148,150,152,157-175,182-187,191-195,199-225,230,235-264,267,270-272
+backend/apps/api/src/error.rs
+  s_c5d615eb7c5dc8::t_94c2a32653934a 1-13
+backend/Cargo.lock
+  s_c5d615eb7c5dc8::t_f8b783bdaa626c 1-2576
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5b5c8d4c43ed90983df90053f794ee9a1326e0a9",
+  "prompts": {},
+  "sessions": {
+    "s_c5d615eb7c5dc8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1843f-d28d-7d82-90a2-46fac7cb8bf9",
+        "model": "codex-auto-review"
+      },
+      "human_author": "Ali Aras <aliaras@outlook.com>"
+    }
+  }
+}
