@@ -54,10 +54,34 @@ services:
       timeout: 3s
       retries: 20
 
+  # Tek seferlik migration aracı; compose up varsayılanında uygulama şemasını değiştirmez.
+  postgres-migrate:
+    image: postgres:18.6-alpine
+    profiles: ["tools"]
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - okuldayim
+    entrypoint: ["/bin/sh", "/scripts/migrate.sh"]
+    environment:
+      MIGRATION_DATABASE_HOST: postgres
+      MIGRATION_DATABASE_PORT: 5432
+      MIGRATION_DATABASE_NAME: ${POSTGRES_DB:-okuldayim}
+      MIGRATION_DATABASE_USER: okuldayim_migrator
+      MIGRATION_DATABASE_PASSWORD: ${OKULDAYIM_MIGRATOR_PASSWORD:?OKULDAYIM_MIGRATOR_PASSWORD .env dosyasında tanımlı olmalı}
+    volumes:
+      - ./postgres:/scripts:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   redis:
     <<: *hardening
     image: redis:8.8-alpine
     user: redis
+    # redis.conf maxmemory 256mb leaves headroom below this container limit.
+    mem_limit: 384m
     environment:
       REDIS_APP_PASSWORD: ${REDIS_APP_PASSWORD:?REDIS_APP_PASSWORD .env dosyasında tanımlı olmalı}
     # ACL dosyası parolayı imaja/diske gömmemek için başlangıçta üretilir.
@@ -118,16 +142,74 @@ services:
       REDIS_APP_PASSWORD: ${REDIS_APP_PASSWORD:?REDIS_APP_PASSWORD .env dosyasında tanımlı olmalı}
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY .env dosyasında tanımlı olmalı}
       S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY .env dosyasında tanımlı olmalı}
+      JASMIN_USERNAME: ${JASMIN_USERNAME:-}
+      JASMIN_PASSWORD: ${JASMIN_PASSWORD:-}
     volumes:
       - ./vault/scripts:/scripts:ro
       - ./vault/policies:/policies:ro
       # Unseal anahtarı, root token ve backend AppRole bilgileri (yalnızca geliştirme; git'e girmez)
       - ./.local/vault:/vault/bootstrap
+      # Backend'e yalnız AppRole dosyasını vermek için root/unseal dosyalarından ayrı volume.
+      - vault-backend-approle:/vault/approle
     depends_on:
       vault:
         condition: service_started
       postgres:
         condition: service_healthy
+      vault-approle-volume-init:
+        condition: service_completed_successfully
+
+  # Named volume'u Vault container UID'sinin yazabileceği ve API UID/GID'sinin okuyabileceği
+  # şekilde hazırlar. İçerik yalnız backend AppRole kimliğidir.
+  vault-approle-volume-init:
+    image: busybox:1.37.0
+    restart: "no"
+    user: "0:0"
+    security_opt:
+      - no-new-privileges:true
+    entrypoint: ["sh", "-c", "chown 100:10001 /vault-approle && chmod 2750 /vault-approle"]
+    volumes:
+      - vault-backend-approle:/vault-approle
+
+  api:
+    <<: *hardening
+    mem_limit: 256m
+    stop_grace_period: 30s
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    environment:
+      OKD_ENV: development
+      OKD_HTTP_ADDR: 0.0.0.0:8080
+      OKD_VAULT_ADDR: http://vault:8200
+      OKD_VAULT_APPROLE_FILE: /run/secrets/backend-approle.env
+      OKD_DB_HOST: postgres
+      OKD_DB_PORT: 5432
+      OKD_DB_NAME: ${POSTGRES_DB:-okuldayim}
+      OKD_DB_SSL_MODE: disable
+      OKD_REDIS_HOST: redis
+      OKD_REDIS_PORT: 6379
+      OKD_SMS_GATEWAY_URL: ${OKD_SMS_GATEWAY_URL:-}
+      OKD_DB_MAX_CONNECTIONS: ${OKD_DB_MAX_CONNECTIONS:-12}
+      RUST_LOG: info
+    ports:
+      - "127.0.0.1:${API_PORT:-8080}:8080"
+    volumes:
+      - vault-backend-approle:/run/secrets:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        # Redis-dependent product routes can fail closed while unrelated DB-backed routes stay up.
+        condition: service_started
+      vault-bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/readyz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
 
   object-storage:
     <<: *hardening
@@ -199,4 +281,5 @@ volumes:
   postgres-data:
   vault-data:
   vault-logs:
+  vault-backend-approle:
   object-storage-data:

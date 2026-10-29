@@ -35,6 +35,17 @@ path "transit/rewrap/kurum-*" {
   capabilities = ["update"]
 }
 
+# Kullanıcı iletişim bilgileri, davet hedefleri, push belirteçleri ve TOTP sırları.
+path "transit/encrypt/kullanici-pii" {
+  capabilities = ["update"]
+}
+path "transit/decrypt/kullanici-pii" {
+  capabilities = ["update"]
+}
+path "transit/rewrap/kullanici-pii" {
+  capabilities = ["update"]
+}
+
 # Telefon numarası gibi şifreli alanlarda arama için körleştirilmiş indeks (HMAC)
 path "transit/hmac/blind-index" {
   capabilities = ["update"]
@@ -54,10 +65,26 @@ path "transit/keys/jwt-signing" {
   capabilities = ["read"]
 }
 
+# Günlük denetim zinciri checkpoint'i; JWT imza anahtarından ayrıdır.
+path "transit/sign/denetim-checkpoint" {
+  capabilities = ["update"]
+}
+path "transit/sign/denetim-checkpoint/*" {
+  capabilities = ["update"]
+}
+path "transit/keys/denetim-checkpoint" {
+  capabilities = ["read"]
+}
+
 # Token yaşam döngüsü
 path "auth/token/renew-self" {
   capabilities = ["update"]
 }
 path "auth/token/lookup-self" {
   capabilities = ["read"]
+}
+
+# Vault Database secrets engine lease'lerini kontrollü biçimde yenileme.
+path "sys/leases/renew" {
+  capabilities = ["update"]
 }

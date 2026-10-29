@@ -1,22 +1,22 @@
 # Backend Sistemleri İhtiyaç Analizleri
 
-28 Ekim 2026 · Sürüm 1.1 · Durum: uygulanacak tasarım ve kabul koşulları
+29 Ekim 2026 · Sürüm 1.2 · Durum: tasarım, kısmi runtime uygulaması ve kabul koşulları
 
-Bu dizin [backend analizini](../backend-requirements-analysis.md), [ürün gereksinimlerini](../../school-parent-communication-requirements.md) ve [mevcut yerel altyapıyı](../../infra/README.md) birlikte ele alır. Her sistemin ayrı belgesi vardır; ortak sınırlar ve sistemler arası kabul koşulları burada tanımlanır. Bu belgeler sistemlerin kurulduğuna veya yük testlerinden geçtiğine dair kanıt değildir.
+Bu dizin [backend analizini](../backend-requirements-analysis.md), [ürün gereksinimlerini](../../school-parent-communication-requirements.md) ve [mevcut yerel altyapıyı](../../infra/README.md) birlikte ele alır. Her sistemin ayrı belgesi vardır; ortak sınırlar ve sistemler arası kabul koşulları burada tanımlanır. Yerel API/DB/Vault/Redis smoke testi yapıldı; bu, tam ürün akışlarının veya C01–C13 kabul/yük testlerinin geçtiği anlamına gelmez.
 
 ## 1. Sistem envanteri ve mevcut durum
 
-Depoda Rust backend kodu, üretim dağıtımı ve sözleşme testi komutu henüz bulunmuyor. `infra/docker-compose.yml` yalnızca geliştirme ortamını tanımlar. İmaj etiketleri yapılandırma tercihleridir; erişilebilirlik, destek süresi ve güvenlik güncelliği ayrıca doğrulanmalıdır.
+Üretim dağıtımı, ürün API akışları ve sözleşme testi komutu henüz bulunmuyor. `infra/docker-compose.yml` geliştirme ortamını tanımlar. İmaj etiketleri yapılandırma tercihleridir; erişilebilirlik, destek süresi ve güvenlik güncelliği ayrıca doğrulanmalıdır.
 
 | Sistem | Ayrı ihtiyaç analizi | Mevcut durum | Gerekli faz |
 | --- | --- | --- | --- |
-| PostgreSQL | [postgresql-requirements.md](postgresql-requirements.md) | Compose, rol başlangıç betiği; uygulama şeması yok | 1a |
-| Redis | [redis-requirements.md](redis-requirements.md) | Compose, ACL ve kalıcılıksız geliştirme yapılandırması | 1a |
-| Vault | [vault-requirements.md](vault-requirements.md) | Compose, Transit/KV/Database/AppRole bootstrap; `kullanici-pii`, `denetim-checkpoint`, `pickup_pepper`, `media_link_key` ve üretim yetki ayrımı eksik | 1a |
+| PostgreSQL | [postgresql-requirements.md](postgresql-requirements.md) | Compose, roller ve İngilizce migration; yerel DB'de 68 tablo/RLS 68/68 mevcut. API runtime dinamik kimlikle bağlanır; ürün sorguları ve C01/C02 doğrulaması eksik | 1a |
+| Redis | [redis-requirements.md](redis-requirements.md) | Compose, ACL, 256 MB `noeviction`; API PING/readiness bağlantısı var, OTP/rate-limit/Pub/Sub ürün davranışı yok | 1a |
+| Vault | [vault-requirements.md](vault-requirements.md) | Yerel bootstrap ve API AppRole, KV okuma, kısa ömürlü DB kimliği ve token yenileme var; Transit ürün akışları, üretim kimlik ayrımı, HA/TLS ve retention operasyonu eksik | 1a |
 | S3 uyumlu nesne depolama | [object-storage-requirements.md](object-storage-requirements.md) | RustFS, bucket başlangıcı ve geçici dosya yaşam döngüsü | 2; destekleyici kurulum 1a |
 | Ingress, DNS ve özel ağ | [ingress-network-requirements.md](ingress-network-requirements.md) | Üretim yapılandırması yok | Staging/üretim öncesi |
-| API, worker, migration ve dağıtım | [application-runtime-requirements.md](application-runtime-requirements.md) | Tasarım var; Rust workspace ve CI yok | 1a |
-| SMS sağlayıcı | [sms-provider-requirements.md](sms-provider-requirements.md) | Sağlayıcı seçilmedi; geliştirmede Mailpit adaptörü planlanıyor | 1a |
+| API, worker, migration ve dağıtım | [application-runtime-requirements.md](application-runtime-requirements.md) | Rust API runtime, lockfile, Compose ve operasyon uç noktaları var; ürün API'si, worker, migration/seed ikilileri ve CI yok | 1a |
+| SMS gateway | [sms-provider-requirements.md](sms-provider-requirements.md) | Jasmin HTTP transport adapter, Vault credential path ve opsiyonel runtime yapılandırması var; SMSC/operatör bağlantısı, OTP, worker ve DLR yok | 1a |
 | FCM/APNs push | [push-delivery-requirements.md](push-delivery-requirements.md) | Backend ve mobil cihaz kaydı henüz uygulanmadı | 1b |
 | E-posta/SMTP ve Mailpit | [email-delivery-requirements.md](email-delivery-requirements.md) | Mailpit var; gerçek e-posta sağlayıcı seçilmedi | 1a (AUTH-01 alternatifi); sağlayıcı kabulü pilot kapısında |
 | Medya işleme | [media-processing-requirements.md](media-processing-requirements.md) | Worker/model/codec uygulaması yok | 2 |
@@ -116,4 +116,4 @@ Bu değerler bütün sistem belgelerinin ortak referansıdır. Değişiklikte ba
 
 ## 6. Kanıt ve bakım
 
-Her gereksinim için uygulama/config referansı, test sonucu, tarih ve sorumlu kaydedilir. Mevcut durum envanteri, uygulama tamamlandığında ayrı güncellenir. Yeni SDK/sağlayıcı, saklama süresi, endpoint sözleşmesi veya ağ yolu değişirse C01–C13'ten etkilenen kontroller tekrar değerlendirilir. Yalnızca belge bağlantısı ve tutarlılık kontrolü bu çalışma kapsamında kanıttır; çalışma zamanı kabulü sonraki uygulama teslimine aittir.
+Her gereksinim için uygulama/config referansı, test sonucu, tarih ve sorumlu kaydedilir. Bu dilimde `cargo check/test/clippy`, Compose yapılandırması ve yerel API readiness/liveness smoke kanıtı elde edilmiştir; bunlar C01–C13 kabul kanıtı değildir. Yeni SDK/sağlayıcı, saklama süresi, endpoint sözleşmesi veya ağ yolu değişirse etkilenen kontroller tekrar değerlendirilir.

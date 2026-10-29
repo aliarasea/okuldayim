@@ -6,7 +6,7 @@ Kaynaklar: [ortak sözleşmeler](README.md), [backend workspace/akış tasarım�
 
 ## Amaç ve süreçler
 
-`okuldayim-api`, `okuldayim-worker`, tek seferlik `okuldayim-migrate` ve sentetik `okuldayim-seed` ayrı süreçlerdir. Aynı Rust workspace alan modüllerini paylaşır; CPU yoğun medya işi web runtime thread'lerini bloke etmez. Depoda bu ikililer, Cargo lockfile ve backend CI henüz yoktur.
+`okuldayim-api`, `okuldayim-worker`, tek seferlik `okuldayim-migrate` ve sentetik `okuldayim-seed` ayrı süreçlerdir. Aynı Rust workspace alan modüllerini paylaşır; CPU yoğun medya işi web runtime thread'lerini bloke etmez. Mevcut durumda API runtime/lockfile ve yerel Compose servisi vardır; worker, migration/seed ikilileri, ürün uç noktaları ve backend CI henüz yoktur.
 
 ## Gereksinimler
 

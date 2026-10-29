@@ -35,4 +35,4 @@ Metrikler: memory, eviction (güvenlik prefix'lerinde hedef 0), reddedilen yazma
 
 ## Mevcut fark ve kabul
 
-Yerel 256 MB/`volatile-lru` ve `+@all` temelli ACL yalnızca geliştirme başlangıcıdır; TTL'li OTP anahtarları da tahliye edilebilir. Üretim gereksinimlerini sağladığı kabul edilmez. RD01–RD06 ile C03/C04/C06/C09/C10/C13 geçmelidir.
+Yerel yapılandırma 256 MB `noeviction` belleği, 384 MB container sınırı ve kapalı kalıcılık kullanır; bellek dolunca yazmalar reddedilir ve uygulamanın fail-closed davranışı gerekir. API Redis parolasını Vault KV'den alır ve readiness için `PING` yapar; Redis kesintisi `degraded` olarak raporlanır. OTP/rate-limit/oturum cache'i ve Pub/Sub ürün davranışları henüz uygulanmadı. ACL varsayılanı kapatır ve yönetim komutlarını engeller, ancak henüz uygulama key/channel ad alanı tanımlanmadığından `+@all` tabanlı izin yalnızca geliştirme içindir. TLS, sayaç kaybı başlangıç politikası ve üretim topolojisi sağlanmış sayılmaz. RD01–RD06 ile C03/C04/C06/C09/C10/C13 geçmelidir.

@@ -4,7 +4,7 @@
 
 İlgili belgeler: [Ürün gereksinimleri v1.2](../school-parent-communication-requirements.md) · [Altyapı](../infra/README.md) · [Mobil uygulama](../mobile/README.md)
 
-Bağımlı sistemlerin ayrı analizleri ve birlikte rafine edilen kabul koşulları: [Sistem ihtiyaç analizleri](systems/README.md). Bu depoda Rust backend workspace'i ve üretim ortamı henüz yoktur; aşağıdaki teknoloji, API, test ve işletim tasarımı uygulama hedefidir. Mevcut Compose ve mobil mock ile hedef arasındaki farklar ayrıca belirtilir.
+Bağımlı sistemlerin ayrı analizleri ve birlikte rafine edilen kabul koşulları: [Sistem ihtiyaç analizleri](systems/README.md). Depoda Rust API runtime'ı ve yerel Compose entegrasyonu vardır; ürün API'si ve üretim ortamı henüz yoktur. Aşağıdaki teknoloji, API, test ve işletim tasarımı hedef mimaridir. Mevcut uygulamayla hedef arasındaki farklar ayrıca belirtilir.
 
 ## İçindekiler
 
@@ -30,6 +30,8 @@ Bağımlı sistemlerin ayrı analizleri ve birlikte rafine edilen kabul koşulla
 Backend; mobil uygulamanın ve kurum web panelinin tek veri kaynağıdır. Kimlik doğrulama, yetkilendirme, kiracı izolasyonu, KVKK kuralları (rıza, saklama, imha, başvuru), canlı olaylar, bildirimler ve medya işleme backend'in sorumluluğundadır.
 
 **Başlangıç noktası.** Mobil uygulama bugün bellek içi bir mock sunucuyla çalışıyor. Backend'in ilk hedefi mevcut kullanıcı akışlarını gerçek veriyle karşılamaktır. İngilizce yollar ve aşağıda belirtilen DTO eklemeleri istemci/mock/sözleşme testlerine birlikte uygulanır; mevcut mock tüm MVP'nin uygulanmış sözleşmesi sayılmaz:
+
+**Uygulama durumu (29 Ekim 2026).** Depoda Rust workspace ve Compose ile başlatılabilen API runtime'ı vardır. Şimdilik Vault AppRole/DB lease, PostgreSQL pool rotasyonu ve tenant transaction temeli, Redis bağlantısı, isteğe bağlı Jasmin SMS transport adaptörü ve operasyon uç noktaları uygulanmıştır. Ürün API yolları, kimlik doğrulama, SMS outbox/worker, DLR callback'i, seed, migration ikilisi ve mobil contract testleri henüz uygulanmadı; bu runtime ürünü pilot kullanıma hazır ilan etmez.
 
 | Referans | Konum | Backend için anlamı |
 | --- | --- | --- |
@@ -66,7 +68,7 @@ Faz ataması ürün MoSCoW önceliğini izler: M maddeleri pilot öncesi fazlard
 
 **Bedeli:** Ekibin Rust yetkinliği, daha uzun derleme süreleri ve medya/model bağlamalarının olgunluğunu doğrulama ihtiyacı. Önlemler bölüm 13'te.
 
-**Bileşenler:** Aşağıdaki kütüphaneler aday seçimlerdir; depoda `Cargo.toml`/`Cargo.lock` olmadığı için belirli sürümlerin güncel veya birbiriyle uyumlu olduğu henüz doğrulanmış değildir. Backend iskeletinde MSRV, uyum, lisans ve güvenlik kontrolünden geçen sürümler `Cargo.lock` ve `rust-toolchain.toml` ile sabitlenir. Compose imajlarının etiket/digest ve desteği de ayrı doğrulanır.
+**Bileşenler:** Aşağıdaki tablo hedef mimariyi gösterir. Mevcut runtime'ın doğrudan bağımlılıkları `backend/apps/api/Cargo.toml` ve `backend/Cargo.lock` içinde sabitlenir; bu, tabloda kalan aday kütüphanelerin sürüm/uyum/lisans/güvenlik doğrulamasının tamamlandığı anlamına gelmez. Compose imajlarının digest ve destek doğrulaması da ayrıca gerekir.
 
 | Katman | Seçim | Gerekçe |
 | --- | --- | --- |
@@ -156,6 +158,8 @@ flowchart LR
 
 Gereksinim analizindeki modüler monolit önerisi korunur; modül sınırları crate sınırlarıyla denetlenir.
 
+Bugünkü workspace yalnızca `apps/api` runtime crate'ini içerir. Aşağıdaki ağaç hedeflenen tam faz yapısıdır; mevcut crate'lerin listesi değildir.
+
 ```
 backend/
 ├── Cargo.toml                  # workspace, ortak bağımlılık sürümleri
@@ -218,19 +222,19 @@ Altyapıdaki rol modeli (`infra/postgres/initdb/01-roles.sh`) başlangıçtır; 
 Her kiracı tablosunda RLS açılır ve zorlanır. Oturum değişkeni ayarlanmamışsa politika satır döndürmez (varsayılan kapalı):
 
 ```sql
-ALTER TABLE app.cocuk ENABLE ROW LEVEL SECURITY;
-ALTER TABLE app.cocuk FORCE ROW LEVEL SECURITY;
+ALTER TABLE app.child ENABLE ROW LEVEL SECURITY;
+ALTER TABLE app.child FORCE ROW LEVEL SECURITY;
 
-CREATE POLICY kiraci ON app.cocuk
-  USING (kurum_id = NULLIF(current_setting('app.kurum_id', true), '')::uuid)
-  WITH CHECK (kurum_id = NULLIF(current_setting('app.kurum_id', true), '')::uuid);
+CREATE POLICY tenant_scope ON app.child
+  USING (organization_id = NULLIF(current_setting('app.organization_id', true), '')::uuid)
+  WITH CHECK (organization_id = NULLIF(current_setting('app.organization_id', true), '')::uuid);
 ```
 
 ```rust
 /// Bağlam, PostgreSQL'den doğrulanmış aktif üyeliğin seçili kurumunu taşır.
 pub async fn begin_tenant<'a>(pool: &'a PgPool, ctx: &AuthContext) -> Result<Transaction<'a, Postgres>, ApiError> {
     let mut tx = pool.begin().await?;
-    sqlx::query("SELECT set_config('app.user_id', $1, true), set_config('app.kurum_id', $2, true)")
+    sqlx::query("SELECT set_config('app.user_id', $1, true), set_config('app.organization_id', $2, true)")
         .bind(ctx.user_id.to_string())
         .bind(ctx.organization_id.to_string())
         .execute(&mut *tx)
@@ -255,7 +259,7 @@ pub async fn begin_tenant<'a>(pool: &'a PgPool, ctx: &AuthContext) -> Result<Tra
 
 Challenge doğrulama/deneme artışı/tüketimi atomiktir. Redis kaybında yeni OTP işlemleri güvenilir sayaç yedeği veya geçiş kısıtlaması olmadan açılmaz. SMS işi 180 sn geçerlilik içinde gönderilir; kuyruk gecikmesiyle süresi dolan kod iptal edilir. Gönderilecek OTP'nin geçici şifreli iş verisi en geç geçerlilik sonunda silinir.
 
-**Davet ve e-posta alternatifi:** `davet` kaydı kurum, rol, kapsam (sınıf/çocuk), telefon/e-posta hedefinin kör indeksi ve şifreli değeri, token özeti, 7 günlük süre ve atomik tüketim içerir. Hesap yalnız davetle oluşur: hedef ilk kez OTP ile doğrulandığında hesap açılır ve o hedefe ait süresi geçmemiş davetler aynı transaction'da üyeliğe dönüşür. Bağlantıdaki token uygulamayı doğru akışa yönlendirir; oturum açıkken gelen yeni kurum/çocuk daveti `POST /v1/invitations/redeem` ile kabul edilir. Token tek başına oturum açmaz ve hedef dışındaki hesaba bağlanamaz. AUTH-01 e-posta alternatifi Faz 1a'da ayrı challenge yoluyla aynı deneme/TTL kurallarını uygular; telefon ve e-posta kimliği yalnız ikisi de doğrulanmışsa aynı hesapta birleşir. Mevcut mobil UI ve mock yalnız telefon OTP'si uygular; e-posta/davet istemci akışı henüz eklenmemiştir.
+**Davet ve e-posta alternatifi:** `invitation` kaydı kurum, rol, kapsam (sınıf/çocuk), telefon/e-posta hedefinin kör indeksi ve şifreli değeri, token özeti, 7 günlük süre ve atomik tüketim içerir. Hesap yalnız davetle oluşur: hedef ilk kez OTP ile doğrulandığında hesap açılır ve o hedefe ait süresi geçmemiş davetler aynı transaction'da üyeliğe dönüşür. Bağlantıdaki token uygulamayı doğru akışa yönlendirir; oturum açıkken gelen yeni kurum/çocuk daveti `POST /v1/invitations/redeem` ile kabul edilir. Token tek başına oturum açmaz ve hedef dışındaki hesaba bağlanamaz. AUTH-01 e-posta alternatifi Faz 1a'da ayrı challenge yoluyla aynı deneme/TTL kurallarını uygular; telefon ve e-posta kimliği yalnız ikisi de doğrulanmışsa aynı hesapta birleşir. Mevcut mobil UI ve mock yalnız telefon OTP'si uygular; e-posta/davet istemci akışı henüz eklenmemiştir.
 
 **Anahtarlar:**
 
@@ -286,7 +290,7 @@ Challenge doğrulama/deneme artışı/tüketimi atomiktir. Redis kaybında yeni 
 | `AKIS_YETKILI` | Etkin değilse yetkili teslim alan akışı göremez |
 
 - **Etkin rıza:** Her (çocuk, tür) için tüm velilerin son kararından hesaplanır: en az bir `GRANTED` ve hiç `DENIED` yok (KVKK-04). Hesap bir veritabanı görünümünde tek yerde yapılır ve mobildeki `resolveEffectiveConsent` ile aynı testleri geçer.
-- **Erişim kısıtlaması (KVKK-09):** `veli_cocuk.erisim` alanı `TAM`, `SALT_OKUNUR` veya `KAPALI` olur. Değişince üyelik önbelleği silinir ve açık WebSocket bağlantısı yeniden yetkilendirilir.
+- **Erişim kısıtlaması (KVKK-09):** `guardian_child.access_level` alanı `TAM`, `SALT_OKUNUR` veya `KAPALI` olur. Değişince üyelik önbelleği silinir ve açık WebSocket bağlantısı yeniden yetkilendirilir.
 - Rıza geri alındığında yeni GET/yayın işlemleri hemen güncel kararla denetlenir. `FOTO_GRUP` eski türevi yeniden üretilene kadar erişime kapatılır; asenkron yeniden üretim eski görüntüyü erişilebilir bırakmaz. Ham dosya yayından sonra silindiği için yeniden üretim mevcut türevden ve medya kaydındaki yüz kutularından yapılır: yalnız bulanıklaştırma eklenebilir, sonradan verilen rıza eski bulanık türevleri açmaz. Yüz kutusu koordinattır, biyometrik şablon değildir ve medyayla birlikte imha edilir. Daha önce cihazda alınmış byte'ların geri çekilemeyeceği teknik sınır açıkça belirtilir.
 - İptal PostgreSQL'de erişimi hemen kapatır; API başarı ve idempotency başarı replay'i, bağımsız kalıcı iptal manifesti onayını bekler. Manifest kesintisinde kısıt sürer ve işlem yeniden denenir; fiziksel imha manifest onayından sonra yapılır. [BK07](systems/backup-recovery-requirements.md) genel RPO'nun iptalleri/imha kararlarını geri açmamasını sağlar.
 - `YETKILI_TESLIM_ALAN` için çocuk/kurum ilişkisi ve süre/kullanım sınırı ayrı yetki kaydıyla tutulur. Faz 2'de teslim talebi oluşturabilir; isteğe bağlı akış okuması `AKIS_YETKILI` ve kapsamla sınırlıdır, sağlık/fotoğraf erişimi verilmez.
@@ -315,7 +319,7 @@ Challenge doğrulama/deneme artışı/tüketimi atomiktir. Redis kaybında yeni 
 
 Mobil uygulama öğretmen girişlerini önce şifreli yerel kuyruğa yazar ve her isteğe `Idempotency-Key` (UUID) ekler (`mobile/src/core/offline/outbox.ts`). Backend tarafı:
 
-1. Retry edilebilir yazmalarda (çevrimdışı kuyruk ve teslim talebi oluşturma) `(kurum_id, kullanıcı, HTTP metodu, yol şablonu/hedef, anahtar)` benzersizdir. Gövde özeti kanonik biçim üzerinden hesaplanır.
+1. Retry edilebilir yazmalarda (çevrimdışı kuyruk ve teslim talebi oluşturma) `(organization_id, user_id, http_method, route_template, idempotency_key)` benzersizdir. Gövde özeti kanonik biçim üzerinden hesaplanır.
 2. Kayıt yoksa istek işlenir; idempotency kaydı iş, outbox ve yanıtla aynı transaction'da yazılır. Aynı anahtarla eşzamanlı gelen ikinci istek, ilk transaction'ın unique kaydını `lock_timeout` sınırında bekler. İlk commit ederse saklanan sonucu alır, ilk geri alınırsa kendisi işlenir, süre aşılırsa `503 server` + `Retry-After` döner. Mobil kuyruk `503`'ü yeniden dener, `409`'u ise kalıcı hata sayar. BK07 iptalinde işlem tamamlanması ve başarı replay'i bağımsız manifest onayına bağlıdır; onay gelmeden kayıt `pending` kalır ve tekrar gelen istek manifest yazımını yeniden dener.
 3. Aynı anahtar ve aynı gövde özetiyle gelen tekrar, saklanan yanıtı döner ve yeniden işlenmez. Yalnız commit edilen `2xx` sonuç saklanır; hata yanıtı durum değiştirmediği için saklanmaz ve tekrar güncel durumla değerlendirilir. Mevcut mock `500` altındaki bütün yanıtları saklar; sözleşme testleri yalnız `2xx` replay'ini sabitler.
 4. Aynı anahtar farklı gövdeyle gelirse `409 conflict` (`details.reason: "idempotency_mismatch"`) döner.
@@ -399,7 +403,7 @@ sequenceDiagram
 
 ### 3.12 Arka plan işleri
 
-İş kuyruğu PostgreSQL'dedir (`is_kuyrugu`, `SELECT … FOR UPDATE SKIP LOCKED`). İş, alan değişikliğiyle aynı transaction'da kuyruğa yazılır (transactional outbox); ek bir mesaj kuyruğu sunucusu gerekmez. Zamanlanmış işin tek örnekte çalışması `zamanlanmis_is` lease satırıyla veya transaction düzeyindeki `pg_try_advisory_xact_lock` ile sağlanır. Session düzeyindeki advisory lock, transaction pooling ve DB kimliği/havuz rotasyonunda güvenilir olmadığı için kullanılmaz. Her çalışma planlanan zaman, başlangıç/bitiş ve sonuçla kaydedilir; worker kapalıyken kaçırılan çalışma yeniden başlatmada bir kez telafi edilir.
+İş kuyruğu PostgreSQL'dedir (`job_queue`, `SELECT … FOR UPDATE SKIP LOCKED`). İş, alan değişikliğiyle aynı transaction'da kuyruğa yazılır (`domain_event_outbox`); ek bir mesaj kuyruğu sunucusu gerekmez. Zamanlanmış işin tek örnekte çalışması `scheduled_job` lease satırıyla veya transaction düzeyindeki `pg_try_advisory_xact_lock` ile sağlanır. Session düzeyindeki advisory lock, transaction pooling ve DB kimliği/havuz rotasyonunda güvenilir olmadığı için kullanılmaz. Her çalışma planlanan zaman, başlangıç/bitiş ve sonuçla kaydedilir; worker kapalıyken kaçırılan çalışma yeniden başlatmada bir kez telafi edilir.
 
 İş sahiplenme kısa transaction'da yapılır; harici çağrı boyunca lock tutulmaz. Claim süre aşımı, yeniden alma, en az bir kez çalışma, idempotent handler, jitter'lı sınırlı retry ve operatör hatalı iş listesi gerekir. Queue payload mümkünse yalnız kurum/resource kimliklerini taşır. Başka kullanıcıya işlem yapma yetkisi worker'a sınırsız verilmez. OTP gibi geçici sırlar kısa süreli şifreli alan ve kesin imhayla yönetilir.
 
@@ -507,7 +511,7 @@ M olmayan ve yukarıdaki satırlara bağlanmayan ürün maddeleri pilot kapısı
 
 | Öncelik | Maddeler | Not |
 | --- | --- | --- |
-| S | AUTH-06 ortak tablet modu, ACT-06 ruh hali, MEAL-06 su/biberon, CARE-05 ihtiyaç bildirimi, ANN-05 zamanlanmış duyuru, MSG-06 sessiz saat, MSG-07 sesli mesaj, REP-02 PDF | `gunluk_kayit` türü ve kurum ayarı genişletilerek eklenir. AUTH-06 paylaşımlı cihazda kullanıcı başına oturum ve yerel sağlık önbelleği yasağı ister |
+| S | AUTH-06 ortak tablet modu, ACT-06 ruh hali, MEAL-06 su/biberon, CARE-05 ihtiyaç bildirimi, ANN-05 zamanlanmış duyuru, MSG-06 sessiz saat, MSG-07 sesli mesaj, REP-02 PDF | `daily_record` türü ve kurum ayarı genişletilerek eklenir. AUTH-06 paylaşımlı cihazda kullanıcı başına oturum ve yerel sağlık önbelleği yasağı ister |
 | S | ATT-03 devamsızlık raporu, PICK-08 geç teslim raporu | BE-PLT-06 kurum raporunda temel sayım olarak yer alabilir; ayrıntılı rapor Faz 3 |
 | S | AUTH-05 biyometrik giriş, CAL-02 telefon takvimine ekleme | Yalnız istemci; backend değişikliği yok |
 | C | ACT-07, MEAL-07, ATT-04, PICK-09, ANN-06, ANN-07, MED-08, MSG-08, CAL-03, NOT-03 | PICK-09 için `KONUM` rıza kuralı şimdiden tanımlıdır; MSG-08 yurt dışı aktarım kararı olmadan açılmaz |
@@ -516,45 +520,44 @@ M olmayan ve yukarıdaki satırlara bağlanmayan ürün maddeleri pilot kapısı
 
 ## 5. Veri modeli
 
-Tüm tablolar `app` şemasındadır. Kiracı tablolarında `kurum_id` ve RLS bulunur. "Kategori" sütunu, saklama süresinin hangi kurala göre hesaplanacağını gösterir (gereksinim 6.7).
+Tüm tablolar `app` şemasındadır. Kiracı tablolarında `organization_id` ve RLS bulunur; kurum bağlamı transaction-local `app.organization_id` ayarıyla aktarılır. "Kategori" sütunu, saklama süresinin hangi kurala göre hesaplanacağını gösterir (gereksinim 6.7).
 
 | Tablo | Modül | Önemli alanlar | RLS | Şifreli alan | Kategori |
 | --- | --- | --- | --- | --- | --- |
-| `kurum`, `sube` | kurum | ad, durum, sözleşme bitişi, transit anahtar adı | ✓ (kurum id/şube kurum_id) | — | — |
-| `sinif` | kurum | kurum_id, ad, eğitim yılı | ✓ | — | — |
-| `kullanici`, `mfa_kaydi`, `davet` | kimlik | telefon/e-posta/kör indeks sürümü; TOTP/recovery hash; hedef, rol, token hash, expiresAt/consumedAt | Kullanıcı/provisioning kapsamında yordam/politika | telefon/e-posta/TOTP/davet hedefi | Kullanıcı hesabı |
-| `uyelik`, `uyelik_sinif` | kurum | kullanıcı, kurum, rol, durum; öğretmen–sınıf eşleşmesi | ✓ | — | — |
-| `cocuk` | kurum | kurum, sınıf, ad, soyad (API'de varsayılan `lastInitial`), doğum tarihi, ayrılış tarihi, profil fotoğrafı referansı (ORG-03; hukuki sebebi §13'te açık) | ✓ | — | Kimlik |
-| `veli_cocuk` | kurum | veli, çocuk, güncel erişim (`TAM` / `SALT_OKUNUR` / `KAPALI`) | ✓ | — | — |
-| `erisim_kisitlamasi` | kurum | veli, çocuk, kapsam, dayanak (karar tarihi/sayısı, belge referansı), başlangıç/bitiş, işlemi yapan; append-only geçmiş | ✓ | — | Kimlik; dayanak belgesi hukukça belirlenen süre |
-| `saglik_profili` | kvkk / gunluk | alerjiler, kronik durum, ilaç talimatı, diyet kısıtı | ✓ | tümü | Sağlık profili |
-| `aydinlatma_metni`, `aydinlatma_okuma` | kvkk | kitle (veli, yetkili/acil kişi, personel), sürüm, özet, tam metin, içerik özeti (hash), yayın tarihi; okuma kaydı | ✓ | — | Rıza ve aydınlatma |
-| `riza_kaydi` | kvkk | çocuk, veli, tür, karar, metin sürümü, kanal, cihaz (append-only) | ✓ | — | Rıza ve aydınlatma |
-| `riza_inceleme` | kvkk | veli, çocuk, metin sürümü, zaman | ✓ | — | Rıza ve aydınlatma |
-| `menu`, `ogun_tanimi` | gunluk | tarih aralığı, sürüm/yayın, öğün tanımı, içerik/alerjenler; özel öğünler Faz 2 | ✓ | — | Günlük |
-| `gunluk_kayit` | gunluk | çocuk, tür (`OGUN`, `UYKU`, `AKTIVITE`, `TUVALET`, `ILAC`, `OLAY`, `TESLIM`), zaman, istemci zamanı, detay (JSONB), oluşturan | ✓ | `ILAC` ve `OLAY` detayı | Günlük / İlaç-olay |
-| `yetkili_kisi`, `yetkili_kullanici_cocuk`, `acil_kisi` | teslim / kurum | ilişki, onaylı fotoğraf, geçerlilik/kullanım sayısı/tüketim, kullanıcı–çocuk kapsamı | ✓ | iletişim | Yetkili kişi |
-| `teslim_talebi` | teslim | çocuk, talep eden, yetkili kişi, teslim alanın ad/yakınlık kopyası, tahmini süre, durum ve geçiş zamanları, PIN özeti, hatalı deneme, teslim eden öğretmen, engel/iptal gerekçe kodu | ✓ | PIN gösterim kopyası (talep kapanınca silinir) | Teslim |
-| `medya`, `medya_etiket`, `medya_turev` | medya | durum, tür, nesne anahtarları; etiketli çocuklar; görünürlük grubu; yüz kutuları (biyometrik şablon değil) | ✓ | — | Fotoğraf ve video |
-| `duyuru`, `duyuru_hedef`, `duyuru_okuma` | iletisim | hedef (kurum/sınıf/veli), ek referansları, onay gereksinimi, yayın zamanı; okuma | ✓ | — | Mesaj ve duyuru |
-| `konusma`, `mesaj` | iletisim | tür (veli–sınıf öğretmenleri, veli–yönetim), taraflar; gönderen, içerik, ek referansı | ✓ | — | Mesaj ve duyuru |
-| `oturum`, `yenileme_anahtari`, `cihaz` | kimlik | sid, aile kimliği, cihaz, iptal tarihi; anahtar özeti; push token | — (kullanıcı bazlı) | push token | Denetim ve güvenlik |
-| `bildirim`, `bildirim_tercihi` | bildirim | kullanıcı, tür, referans, okundu; kategori tercihleri | ✓ | — | Mesaj ve duyuru |
-| `kvkk_basvuru`, `veri_dokumu_talebi` | kvkk | tür, açıklama, durum, hedef tarih (15 gün), yasal son tarih (30 gün), yanıt ve gerekçe | ✓ | açıklama | Rıza ve aydınlatma (süre §13'te açık) |
-| `saklama_politikasi`, `imha_kaydi` | kvkk | kategori, süre, başlangıç olayı, işlem; çalışma kaydı | ✓ | — | İmha tutanağı |
-| `denetim_kaydi` | platform | zincir (kurum/platform), aktör, eylem, hedef, zaman, önceki özet, özet (append-only) | ✓ | — | Denetim ve güvenlik |
-| `idempotency_anahtari` | platform | kurum/kullanıcı/method/yol/anahtar, gövde özeti, durum, yanıt; benzersiz sahiplik | ✓ | hassas yanıt; PIN yazılmaz (§3.14) | Metaveri 7 gün |
-| `is_kuyrugu`, `alan_olayi` | platform | kurum/resource, eventId/sürüm, claim sahibi/süresi, deneme/son hata | Worker claim metaverisi + kurum kapsamlı iş erişimi | Geçici sır gerektiğinde | İş türüne bağlı |
-| `yoklama`, `gelmeme_bildirimi`, `takvim_olayi`, `etkinlik_katilimi` | gunluk | çocuk/sınıf, giriş/çıkış, tanı içermeyen sebep, olay kapsam/katılım | ✓ | — | Günlük / Mesaj |
-| `ilac_talimati`, `duyuru_onayi`, `mesaj_okuma`, `mesaj_gizleme` | gunluk / iletisim | ilaç talimatı/düzeltme, hedefli onay/okuma, kişi/herkes gizleme | ✓ | ilaç ayrıntısı | İlaç-olay / Mesaj |
-| `kurum_ayari`, `aktivite_tipi`, `egitim_yili`, `ice_aktarma` | kurum | modüller, yayın modu ve gün sonu saati, yetkili kişi onay zorunluluğu; aktivite tanımları; dönem; içe aktarma durumu | ✓ | — | Kurum ilişkisi; içe aktarma dosyası işlem sonrası silinir |
-| `zamanlanmis_is` | platform | iş adı, planlanan zaman, lease sahibi/süresi, başlangıç/bitiş, sonuç | Worker'a özel yordam | — | Operasyon (≤ 90 gün) |
+| `organization`, `branch` | kurum | ad, durum, sözleşme bitişi, transit anahtar adı | ✓ | — | — |
+| `classroom`, `school_year` | kurum | organization_id, sınıf adı, eğitim dönemi | ✓ | — | — |
+| `user_account`, `user_contact`, `mfa_record`, `mfa_recovery_code`, `invitation` | kimlik | telefon/e-posta kör indeks sürümü; TOTP/recovery hash; davet hedefi, rol ve token hash'i | Kullanıcı/provisioning kapsamında yordam/politika | PII, TOTP ve davet hedefi | Kullanıcı hesabı |
+| `membership`, `membership_class` | kurum | kullanıcı, kurum, rol, durum; öğretmen–sınıf eşleşmesi | ✓ | — | — |
+| `child` | kurum | sınıf, şifreli ad/soyad, doğum ve ayrılış tarihi, profil medya referansı | ✓ | ad/soyad | Kimlik |
+| `guardian_child` | kurum | veli, çocuk, güncel erişim (`TAM` / `SALT_OKUNUR` / `KAPALI`) | ✓ | — | — |
+| `access_restriction` | kurum | veli, çocuk, kapsam, dayanak, başlangıç/bitiş; append-only geçmiş | ✓ | — | Kimlik; dayanak belgesi hukukça belirlenen süre |
+| `health_profile` | kvkk / gunluk | alerjiler, kronik durum, ilaç talimatı, diyet kısıtı | ✓ | tümü | Sağlık profili |
+| `privacy_notice`, `privacy_notice_read` | kvkk | kitle, sürüm, özet, tam metin, içerik hash'i, yayın tarihi ve okuma kaydı | ✓ | — | Rıza ve aydınlatma |
+| `consent_record`, `consent_review`, `effective_consent` | kvkk | çocuk, veli, tür, karar, metin sürümü ve kanal; append-only | ✓ | — | Rıza ve aydınlatma |
+| `meal_menu`, `meal_definition`, `meal_allergen` | gunluk | tarih aralığı, yayın, öğün tanımı ve alerjenler | ✓ | — | Günlük |
+| `daily_record` | gunluk | çocuk, tür, zaman, istemci zamanı, detay ve oluşturan | ✓ | `ILAC` ve `OLAY` detayı | Günlük / İlaç-olay |
+| `authorized_person`, `authorized_user_child`, `emergency_contact` | teslim / kurum | ilişki, onaylı fotoğraf, geçerlilik/kullanım sayısı, kullanıcı–çocuk kapsamı | ✓ | iletişim | Yetkili kişi |
+| `pickup_request` | teslim | çocuk, talep eden, yetkili kişi, teslim alan kopyası, durum, PIN özeti ve geçiş zamanları | ✓ | ad ve PIN gösterim kopyası | Teslim |
+| `media`, `media_tag`, `media_derivative` | medya | durum, nesne anahtarları, çocuk etiketleri, görünürlük ve yüz kutuları | ✓ | — | Fotoğraf ve video |
+| `announcement`, `announcement_target`, `announcement_read`, `announcement_approval` | iletisim | hedef, ek referansları, onay, yayın ve okuma | ✓ | — | Mesaj ve duyuru |
+| `conversation`, `conversation_participant`, `message`, `message_attachment` | iletisim | taraflar, gönderen, şifreli içerik ve ek referansı | ✓ | mesaj içeriği | Mesaj ve duyuru |
+| `session`, `refresh_token`, `device` | kimlik | oturum ailesi, cihaz, iptal tarihi, anahtar özeti ve push token | — (kullanıcı bazlı) | push token | Denetim ve güvenlik |
+| `notification`, `notification_preference` | bildirim | kullanıcı, tür, kaynak, okunma ve kategori tercihleri | ✓ | — | Mesaj ve duyuru |
+| `privacy_request`, `data_export_request` | kvkk | tür, açıklama, durum, hedef/yasal tarih, yanıt ve döküm | ✓ | açıklama | Rıza ve aydınlatma |
+| `retention_policy`, `destruction_record` | kvkk | kategori, süre, başlangıç olayı ve imha çalışma kaydı | ✓ | — | İmha tutanağı |
+| `audit_chain_head`, `audit_record`, `platform_audit_record` | platform | zincir, aktör, eylem, hedef, zaman ve hash (append-only) | ✓ / owner-only | ayrıntı | Denetim ve güvenlik |
+| `idempotency_key` | platform | organization/user/method/route/key, istek özeti, durum ve yanıt | ✓ | hassas yanıt; PIN yazılmaz (§3.14) | Metaveri 7 gün |
+| `job_queue`, `domain_event_outbox` | platform | kurum/kaynak, olay sürümü, claim lease'i, deneme ve son hata | Owner-only / yordam | Payload yalnız kimlik/metaveri taşır | İş türüne bağlı |
+| `attendance`, `absence_notice`, `calendar_event`, `event_participation` | gunluk | çocuk/sınıf, giriş/çıkış, tanı içermeyen sebep ve katılım | ✓ | — | Günlük / Mesaj |
+| `medication_instruction`, `message_read`, `message_hidden` | gunluk / iletisim | ilaç talimatı, okuma ve kişi bazlı gizleme | ✓ | ilaç ayrıntısı | İlaç-olay / Mesaj |
+| `organization_settings`, `organization_module`, `activity_type`, `data_import` | kurum | modüller, yayın modu, aktivite tanımı ve içe aktarma durumu | ✓ | — | İçe aktarma dosyası işlem sonrası silinir |
+| `scheduled_job`, `scheduled_job_run` | platform | iş adı, planlanan zaman, lease, başlangıç/bitiş ve sonuç | Owner-only | — | Operasyon (≤ 90 gün) |
 
 Notlar:
 
-- Etkin rıza `riza_durumu` görünümüyle hesaplanır: her (çocuk, veli, tür) için son karar alınır, ardından en kısıtlayıcı kural uygulanır.
+- Etkin rıza `effective_consent` görünümüyle hesaplanır: her (çocuk, veli, tür) için son karar alınır, ardından en kısıtlayıcı kural uygulanır.
 - Sağlık profili, çocuk tablosundan ayrıdır; öğretmen sınıf listesi isterken yalnızca sağlık rızası etkin çocukların profili çözülür.
-- Veliler birbirinin `kullanici` kaydına erişemez; ortak çocuğu olan velinin yalnızca görünen adı ve rıza kararı (kimliksiz) gösterilir.
+- Veliler birbirinin `user_account` kaydına erişemez; ortak çocuğu olan velinin yalnızca görünen adı ve rıza kararı (kimliksiz) gösterilir.
 - Teslim kaydı teslim alanın ad/yakınlık kopyasını taşır; yetkili kişinin fotoğraf/telefon silmesi teslim geçmişini bozmaz (§3.14). Ürün 6.7'deki "yetkili kişi bilgileri" süresi PICK-05'e göre fotoğraf ve telefonu kapsar.
 
 ---
@@ -735,7 +738,7 @@ Yollar hedef sözleşmedir; handler/istemci DTO'ları henüz uygulanmamıştır.
 | 1a / 2 | `POST /v1/admin/organizations/{organizationId}/invitations`, `POST /v1/invitations/redeem` | Önce yönetim aracı, sonra panel; 7 günlük token özeti, hedef OTP ve tek tüketim |
 | 1b | `GET /v1/privacy/requests/{requestId}`, `POST /v1/admin/organizations/{organizationId}/privacy-requests/{requestId}/response` | `response`, `reason`, `answeredAt`, `targetAt`, `dueAt`; mevcut basit mobil DTO genişletilir |
 | 1b | `GET /v1/me/deletion-preview` | Silinecek/saklanacak veri kategorileri ve gerekçe; hesap silme mevcut privacy request türüyle açılır |
-| 1b | `PUT /v1/admin/organizations/{organizationId}/children/{childId}/guardians/{guardianId}/access` | Dayanak (1b'de karar tarihi/sayısı; belge dosyası S3/ClamAV ile Faz 2), erişim kapsamı/süre ve anlık iptal; geçmiş `erisim_kisitlamasi`'nda |
+| 1b | `PUT /v1/admin/organizations/{organizationId}/children/{childId}/guardians/{guardianId}/access` | Dayanak (1b'de karar tarihi/sayısı; belge dosyası S3/ClamAV ile Faz 2), erişim kapsamı/süre ve anlık iptal; geçmiş `access_restriction`'da |
 | Yönetim API'si açılınca; en geç 2 | `POST /v1/auth/mfa/enrollment`, `POST /v1/auth/mfa/confirm`, `POST /v1/auth/mfa/verify`, `POST /v1/auth/mfa/recovery` | TOTP ve recovery; sınırlı ön oturum, tek kullanımlı kod, ek kimlik doğrulama ve denetim |
 | 2 | `GET /v1/organizations/{organizationId}/menus?from=…&to=…`, `PUT /v1/admin/organizations/{organizationId}/menus`, `GET/PUT /v1/admin/organizations/{organizationId}/meal-definitions` | Haftalık/aylık yayın, sürüm, özel öğün tanımları; sabit `MealSlot` geçişi |
 | 2 | `GET/PUT /v1/children/{childId}/health-profile`, `GET/PUT /v1/admin/organizations/{organizationId}/children/{childId}/health-profile`, `GET/POST /v1/children/{childId}/emergency-contacts`, `PATCH/DELETE /v1/children/{childId}/emergency-contacts/{contactId}` | Veli/yönetici yazması; öğretmene yalnız izinli alanlar; sağlık rızası/kapsamı, şifreleme, acil kişi aydınlatması |
@@ -820,15 +823,15 @@ Kod üretimi ve `test:contract` bugün `mobile/package.json` içinde yoktur. `op
 
 ### 8.1 Geliştirici: yerelde uçtan uca çalıştırma
 
-> Bu adımlar backend iskeleti kurulduğunda geçerlidir (Faz 1a'nın ilk çıktısı).
+> Altyapı ve operasyonel API runtime'ı bugün çalıştırılabilir. Ürün akışları, worker, seed ve mobil sözleşme testleri tamamlanana kadar uçtan uca Faz 1a kabulü sağlanmış sayılmaz.
 
-Ön koşullar: `backend/` workspace/`.env.example`, migration/seed ikilileri, İngilizce mobil yollar, sözleşme test harness'i ve npm komutu henüz hazırlanmalıdır. Aşağıdaki backend komutları bugünkü depoda çalışır kabul edilmez.
+Ön koşullar: Docker Compose v2 ve yerel registry erişimi. Ürün API yolları, migration/seed ikilileri ve contract harness henüz hazırlanmalıdır. Operasyonel API runtime'ı için:
 
 1. **Altyapıyı başlatın.**
    ```sh
    colima start                                   # macOS'ta Docker çalışmıyorsa
-   cd infra && ./scripts/generate-dev-env.sh && docker compose up -d
-   docker compose ps                              # vault-bootstrap ve storage-init "Exited (0)" olmalı
+   cd infra && ./scripts/generate-dev-env.sh && docker compose up -d --build
+   docker compose ps                              # API healthy; bootstrap/init servisleri Exited (0)
    ```
 2. **Backend ortam dosyasını hazırlayın.**
    ```sh
@@ -848,7 +851,7 @@ Kod üretimi ve `test:contract` bugün `mobile/package.json` içinde yoktur. `op
    | `OKD_MIGRATOR_URL` | `postgres://okuldayim_migrator:…@127.0.0.1:5432/okuldayim` | Yalnız `okuldayim-migrate`; yerelde parola `infra/.env`'den, üretimde ayrı kısa ömürlü kimlik |
    | `OKD_REDIS_URL` | `redis://app@127.0.0.1:6379` | Parola Vault KV'den |
    | `OKD_S3_ENDPOINT`, `OKD_S3_PUBLIC_URL` | `http://127.0.0.1:9000` | Anahtarlar Vault KV'den; imzalı URL'ler dış adresle üretilir |
-   | `OKD_SMS_PROVIDER` | `mailpit` | Planlanan SMS→Mailpit adaptörü; bugün backend adaptörü yok |
+   | `OKD_SMS_GATEWAY_URL` | boş (devre dışı) | Jasmin `/send` URL'si; `JASMIN_USERNAME`/`JASMIN_PASSWORD` yalnız Vault bootstrap girdisi, gerçek SMSC operatör bağlantısı ayrıca gerekir |
    | `OKD_SMTP_URL` | `smtp://127.0.0.1:1025` | |
    | `RUST_LOG` | `info,okuldayim=debug` | |
    | `OTEL_EXPORTER_OTLP_ENDPOINT` | — | İsteğe bağlı |
@@ -1032,7 +1035,7 @@ Tek servis latency/uptime hedefi bütün sistemi garanti etmez. 100 bin kayıtl�
 | Backend politikasına DB lease yenileme (`sys/leases/renew`) | Havuz rotasyonunda lease yenileme; mevcut politikada yalnız token yenileme var | 1a |
 | Ayrı provisioning ve retention Vault rolleri/PG kimlikleri; `kvkk-ops` politikasının onaylanan tek kurum anahtarına daraltılması | Kurum anahtarı kurulumu ve süre sonu silmesi sıradan app kimliğinde olmaz; mevcut `kvkk-ops` bütün Transit anahtarlarına ulaşır | 1b / pilot öncesi |
 | Vault'ta PostgreSQL kök parolasının döndürülmesi (`database/rotate-root`) | `vault_admin` parolasını yalnızca Vault bilsin | Üretim |
-| Redis üretim ACL'i (komut/anahtar/kanal), `noeviction` ve auth sayaç kaybı politikası | RD02/RD05/RD06; mevcut `+@all` ve `volatile-lru` yalnız geliştirme içindir | Staging |
+| Redis üretim ACL'i (komut/anahtar/kanal), TLS/topoloji ve auth sayaç kaybı politikası | RD02/RD05/RD06; yerelde 256 MB `noeviction` var, ancak `+@all` ACL'i ve sayaç kaybı davranışı yalnız geliştirme içindir | Staging |
 | ClamAV servisi (önerilen ayrı Compose profile) | Bütün yüklemelerin taranması; mevcut Compose'da yok | 2 |
 | Collector, Sentry, metrik/log deposu ve alarm | Mevcut Compose'da yok; gerçek veri kapısı gereksinimi | Staging/üretim öncesi |
 | Ingress: `api.<alan>`, `medya.<alan>`, `panel.<alan>`, TLS 1.2+ (tercih 1.3), HSTS | Host/path koruyan PUT, yetki denetimli GET, web panel kaynağı, ağ izolasyonu | Staging/üretim öncesi |
@@ -1088,7 +1091,7 @@ Kubernetes kesin seçim değildir; workload auth barındırmaya göre belirlenir
 **Açık sorular**
 
 - [ ] Kurum yöneticisi web paneli hangi teknolojiyle yazılacak (React)? Aynı API'yi çerez tabanlı oturumla kullanacak.
-- [ ] SMS sağlayıcısı hangisi olacak? (Türkiye'de lisanslı; OTP ve kritik bildirim için)
+- [ ] Türkiye'de lisanslı SMS operatörü/SMSC sağlayıcısı hangisi olacak? Jasmin açık kaynak gateway'i seçildi; taşıyıcı, sender ID ve veri işleme sözleşmesi ayrıca kararlaştırılmalı.
 - [ ] Barındırma: Kubernetes mi, yönetilen konteyner servisi mi? (Türkiye'de veri merkezi şartı sabit)
 - [ ] Faz 1a'da kurum ve sınıf verisi seed/yönetim aracıyla mı girilecek, yoksa CSV içe aktarma Faz 1'e mi çekilecek?
 - [ ] `recordedAt` sözleşme değişikliği onaylanıyor mu? (Mobilde küçük bir değişiklik gerektirir)

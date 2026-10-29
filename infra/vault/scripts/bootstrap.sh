@@ -8,7 +8,9 @@ set -eu
 
 export VAULT_ADDR="${VAULT_ADDR:-http://vault:8200}"
 OUT=/vault/bootstrap
+APPROLE_OUT=/vault/approle
 mkdir -p "$OUT"
+mkdir -p "$APPROLE_OUT"
 # macOS bind mount'larında chmod desteklenmeyebilir; dizin host'ta .gitignore kapsamındadır
 chmod 700 "$OUT" 2>/dev/null || true
 
@@ -89,7 +91,9 @@ ensure_key() {
   vault read "transit/keys/$name" >/dev/null 2>&1 || vault write "transit/keys/$name" "$@" >/dev/null
 }
 ensure_key blind-index type=aes256-gcm96
+ensure_key kullanici-pii type=aes256-gcm96
 ensure_key jwt-signing type=ecdsa-p256 auto_rotate_period=2160h
+ensure_key denetim-checkpoint type=ecdsa-p256
 
 # --- Backend sırları ---
 if vault kv get -mount=secret okuldayim/backend >/dev/null 2>&1; then
@@ -104,6 +108,33 @@ else
     s3_access_key="$S3_ACCESS_KEY" \
     s3_secret_key="$S3_SECRET_KEY" >/dev/null
 fi
+
+# Jasmin is optional and requires a separately provisioned gateway account.
+# Credentials are stored only in Vault; the API receives them through the KV read.
+if [ -n "${JASMIN_USERNAME:-}" ] || [ -n "${JASMIN_PASSWORD:-}" ]; then
+  if [ -z "${JASMIN_USERNAME:-}" ] || [ -z "${JASMIN_PASSWORD:-}" ]; then
+    log "Jasmin username and password must be configured together"
+    exit 1
+  fi
+  vault kv patch -mount=secret okuldayim/backend \
+    jasmin_username="$JASMIN_USERNAME" \
+    jasmin_password="$JASMIN_PASSWORD" >/dev/null
+fi
+unset JASMIN_USERNAME JASMIN_PASSWORD
+
+# Süreç boyunca sabit kalması gereken sırlar yalnızca ilk eksiklikte üretilir.
+# KV v2 sürümlemesi eski medya bağlantısı imzalarının en çok 5 dk doğrulanmasını sağlar.
+ensure_backend_secret() {
+  field="$1"
+  if ! vault kv get -field="$field" -mount=secret okuldayim/backend >/dev/null 2>&1; then
+    value="$(vault write -f -field=random_bytes sys/tools/random/32)"
+    vault kv patch -mount=secret okuldayim/backend "$field=$value" >/dev/null
+    unset value
+  fi
+}
+ensure_backend_secret otp_pepper
+ensure_backend_secret pickup_pepper
+ensure_backend_secret media_link_key
 
 # --- Dinamik PostgreSQL kimlik bilgileri ---
 vault write database/config/okuldayim \
@@ -145,5 +176,9 @@ secret_id="$(vault write -f -field=secret_id auth/approle/role/okuldayim-backend
 umask 077
 printf 'VAULT_ADDR=http://127.0.0.1:8200\nVAULT_ROLE_ID=%s\nVAULT_SECRET_ID=%s\n' "$role_id" "$secret_id" \
   > "$OUT/backend-approle.env"
+printf 'VAULT_ADDR=http://127.0.0.1:8200\nVAULT_ROLE_ID=%s\nVAULT_SECRET_ID=%s\n' "$role_id" "$secret_id" \
+  > "$APPROLE_OUT/backend-approle.env.tmp"
+chmod 440 "$APPROLE_OUT/backend-approle.env.tmp"
+mv -f "$APPROLE_OUT/backend-approle.env.tmp" "$APPROLE_OUT/backend-approle.env"
 
 log "Hazır. Backend AppRole bilgileri: infra/.local/vault/backend-approle.env"

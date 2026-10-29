@@ -6,16 +6,16 @@ Kaynaklar: [ortak sistem sözleşmesi](README.md), [backend §3.4, §5](../backe
 
 ## Amaç ve sınırlar
 
-Kurum, kullanıcı, rıza, günlük kayıt, teslim, mesaj, denetim, idempotency ve worker/outbox verilerinin kalıcı kaynağıdır. Redis ve bildirim sağlayıcıları bu verinin sahibi değildir. Mevcut PostgreSQL 18 Compose servisi ve rol başlangıcı uygulama şeması, migration veya üretim HA kurulumu içermez.
+Kurum, kullanıcı, rıza, günlük kayıt, teslim, mesaj, denetim, idempotency ve worker/outbox verilerinin kalıcı kaynağıdır. Redis ve bildirim sağlayıcıları bu verinin sahibi değildir. PostgreSQL 18 Compose servisi, rol başlangıcı ve İngilizce adlandırılmış uygulama migration'ı yerel şemayı kurar; üretim HA kurulumu bu kapsamda değildir.
 
 ## Fonksiyonel gereksinimler
 
 | Kimlik | Gereksinim | Kabul kanıtı |
 | --- | --- | --- |
-| PG01 | Kiracı tablolarında `kurum_id`, RLS `USING`/`WITH CHECK` ve `FORCE`; seçili kurum transaction-local ayarlanır | C01; eksik/boş/yanlış bağlam ve havuz tekrar kullanım testi |
+| PG01 | Kiracı tablolarında `organization_id`, RLS `USING`/`WITH CHECK` ve `FORCE`; seçili kurum `app.organization_id` transaction-local ayarlanır | C01; eksik/boş/yanlış bağlam ve havuz tekrar kullanım testi |
 | PG02 | Kurum referansları birleşik anahtar/FK ile korunur; çocuğun başka kurum sınıfına bağlanması engellenir | Çapraz kurum INSERT/UPDATE reddi |
 | PG03 | Migration rolü owner'a geçer; runtime tablo sahibi/BYPASSRLS/DDL yetkili değildir | Rol yetki testi ve temiz DB'de migration |
-| PG04 | `(kurum_id, kullanıcı, method, route, idempotency_key)` benzersiz; durum değişimi, outbox ve yanıt kaydı atomik | C02; paralel aynı anahtar/commit sonrası timeout |
+| PG04 | `(organization_id, user_id, http_method, route_template, idempotency_key)` benzersiz; durum değişimi, outbox ve yanıt kaydı atomik | C02; paralel aynı anahtar/commit sonrası timeout |
 | PG05 | Teslimde çocuk başına tek açık talep (`YOLDA`/`HAZIRLANIYOR`/`ENGELLENDI`); PIN denemesi ve durum geçişleri satır kilidi/koşullu UPDATE ile atomik; PIN gösterim kopyası son durumla aynı transaction'da silinir | Aynı PIN'e paralel denemeler en fazla üç başarısız girişten sonra engeller; `ENGELLENDI` iken yeni talep reddedilir; C13 |
 | PG06 | Outbox claim kısa transaction'da yapılır; harici işlem boyunca DB kilidi tutulmaz; claim süresi ve yeniden alma vardır | C04; worker kapanma ve tekrar testleri |
 | PG07 | Rıza/denetim kayıtlarında sıradan UPDATE/DELETE yok; süre sonu silme ayrı kurum kapsamlı retention kimliği/yordamıyla yapılır | App rolü silmeyi yapamaz, retention yalnızca uygun kayıtları siler |
@@ -27,7 +27,7 @@ Kurum, kullanıcı, rıza, günlük kayıt, teslim, mesaj, denetim, idempotency 
 
 Alan şifrelemesi Vault ciphertext'ini sürümüyle saklar; OTP, PIN, refresh sırları açık tutulmaz. İdempotency yanıtında kişisel veri varsa şifrelenir; idempotency kaydına PIN yazılmaz. Teslim PIN'inin talep sahibine gösterim kopyası kurum anahtarıyla şifrelidir ve talep son duruma geçince silinir. Saklama kategorisi, zaman başlangıcı ve varsa hukuki muhafaza ayrı sütunlardır.
 
-`TenantTx` yalnızca sunucunun doğruladığı kurum kimliğini kullanır. RLS uygulama/sınıf/çocuk yetkilendirmesinin ek savunmasıdır; DB istemci girdisinden güvenlik bağlamı üretmez. `kullanici`, `oturum` gibi çok kuruma ortak tablolar için özel politikalar/yordamlar gerekir. Güvenlik tanımlı yordamlar sabit `search_path`, dar EXECUTE izinleri ve açık kapsam kontrolüyle denetlenir; varsayılan PUBLIC EXECUTE kaldırılır.
+`TenantTx` yalnızca sunucunun doğruladığı kurum kimliğini kullanır. RLS uygulama/sınıf/çocuk yetkilendirmesinin ek savunmasıdır; DB istemci girdisinden güvenlik bağlamı üretmez. `user_account`, `session` gibi çok kuruma ortak tablolar için özel politikalar/yordamlar gerekir. Güvenlik tanımlı yordamlar sabit `search_path`, dar EXECUTE izinleri ve açık kapsam kontrolüyle denetlenir; varsayılan PUBLIC EXECUTE kaldırılır.
 
 Vault kısa ömürlü kimliği API/worker havuzlarına verir. Yeni kimlik havuzu hazır olmadan eskisi kapatılmaz. Toplam bağlantı bütçesi API örnekleri + worker + migration + izleme + en az %20 işletim rezervini kapsar; ikinci havuzun rotasyon sırasındaki geçici bağlantıları da sayılır. Transaction pooling seçilirse session varsayımlarına dayanılmaz.
 
@@ -41,6 +41,6 @@ Kurum/tarih/sınıf/çocuk bazlı indeksler ve cursor sorguları 10× yükte EXP
 
 ## Mevcut farklar ve teslim
 
-Rol betiği geniş varsayılan CRUD/EXECUTE verir; migration her tablonun gerçek yetkisini daraltmalıdır. Ayrı retention rolü, global kimlik erişim kısıtları, üretim replikasyonu ve yedekleme henüz yoktur. Vault rol iptalinin var olan bağlantılar ve rol sahipliği üzerindeki etkisi entegrasyon testinde doğrulanmalıdır.
+Rol betiği geniş varsayılan CRUD/EXECUTE verir; migration her tablonun gerçek yetkisini daraltır. API runtime Vault'tan geçici DB kimliği alır, yeni pool'u doğruladıktan sonra lease'in %70'inde pool'u değiştirir ve tenant transaction'ında `app.user_id`/`app.organization_id` değerlerini transaction-local yazar. Kurum oluşturma henüz runtime'a açılmamıştır; onaylı provisioning akışı/kimliği, ayrı retention rolü, global kimlik erişim kısıtları, üretim replikasyonu ve yedekleme ayrıca tamamlanmalıdır. Lease sona ermesi, eski rol iptali ve açık bağlantı davranışının C06 entegrasyon testi henüz yapılmadı.
 
 PG01–PG10, C01/C02/C04/C06/C08/C09/C10/C12/C13 geçmeden gerçek veri kullanılmaz. Migration geri alma stratejisi: eklemeli şema, eski uygulamayla uyum, kontrollü veri geri doldurma; veri kaybettiren down migration varsayılan rollback değildir.
