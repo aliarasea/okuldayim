@@ -1,8 +1,12 @@
 #![forbid(unsafe_code)]
 
+mod auth;
 mod config;
 mod http;
 mod integrations;
+#[cfg(test)]
+mod phase1a_e2e;
+mod product;
 
 use std::{error::Error, time::Duration};
 
@@ -17,12 +21,18 @@ use tracing_subscriber::EnvFilter;
 async fn main() -> Result<(), Box<dyn Error>> {
     initialize_tracing();
     let config = RuntimeConfig::from_env()?;
+    if config.mode == config::RuntimeMode::Production && config.sms_gateway_url.is_none() {
+        return Err(Box::<dyn Error>::from(error::RuntimeError::Configuration(
+            "production requires a configured SMS gateway",
+        )));
+    }
     let approle = VaultAppRole::read(&config.approle_file)?;
     let vault = VaultClient::new(config.vault_addr.clone(), approle)?;
     vault.authenticate().await?;
 
     // The API does not retain Vault's root token or long-lived database credentials.
     let secrets = vault.backend_secrets().await?;
+    let jwt_keys = vault.jwt_public_keys().await?;
     let postgres = PostgresIntegration::connect(&config, vault.clone()).await?;
     let redis = RedisIntegration::new(&config.redis_host, config.redis_port, &secrets)?;
     let sms =
@@ -37,7 +47,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .transpose()?;
 
     let listener = TcpListener::bind(config.http_addr).await?;
-    let app = http::router(postgres.clone(), redis.clone(), sms);
+    let app = http::router(
+        postgres.clone(),
+        redis.clone(),
+        sms,
+        vault.clone(),
+        secrets,
+        config.mode,
+        jwt_keys,
+    );
     let (shutdown_sender, _) = broadcast::channel(1);
     let vault_task = {
         let vault = vault.clone();
@@ -51,9 +69,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     info!(address = %config.http_addr, environment = ?config.mode, "Okuldayim API is listening");
-    let result = axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
-        .await;
+    let result = axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await;
 
     let _ = shutdown_sender.send(());
     await_shutdown(vault_task).await;

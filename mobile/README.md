@@ -2,10 +2,10 @@
 
 React Native 0.88 · Expo SDK 58 · React 19.3 · TypeScript 6 · Expo Router
 
-Veli ve öğretmen rolleri tek uygulamada. Backend henüz yazılmadığı için uygulama varsayılan olarak
-bellek içi **mock sunucu** ile çalışır. Mock sunucu sentetik veri kullanır; sözleşme ve KVKK kuralları gerçek
-backend'le aynı tutulur (kapsam kontrolü, en kısıtlayıcı rıza, rızaya bağlı alerji görünürlüğü, tek
-kullanımlık teslim kodu, OTP deneme sınırı).
+Veli ve öğretmen rolleri tek uygulamada. Rust backend Faz 1a kimlik doğrulama ve ürün `/v1` uçlarını sunar.
+Uygulama varsayılan olarak bellek içi **mock sunucu** ile çalışır; HTTP backend'i `EXPO_PUBLIC_API_MODE=http`
+ile seçilir. Mock sentetik verisi yalnız demo ve mobil UI/domain testleri içindir.
+Uç nokta eşlemesi ve kabul koşulları [mobil-backend use case belgesindedir](../docs/mobile-backend-use-cases.md).
 
 ## Çalıştırma
 
@@ -14,19 +14,27 @@ npm install
 npm run ios        # veya: npm run android
 ```
 
-| Demo numara | Rol | Not |
+| Mock demo numara | Rol | Not |
 | --- | --- | --- |
 | 555 000 00 01 | Veli (Ada ve Can) | Ada'nın diğer velisi grup fotoğrafına itiraz etmiş durumda |
 | 555 000 00 02 | Öğretmen (Kelebekler) | Mert'in velisi sağlık rızası vermediği için alerjisi görünmez |
 | 555 000 00 03 | Öğretmen + veli | Profil ekranından rol değiştirilebilir |
 
-Doğrulama kodu: `123456`. Gerçek backend için:
+Mock doğrulama kodu `123456`'dır. Gerçek backend için iOS Simulator'da:
 
 ```sh
-EXPO_PUBLIC_API_MODE=http EXPO_PUBLIC_API_URL=https://api.ornek.com.tr npm start
+EXPO_PUBLIC_API_MODE=http EXPO_PUBLIC_API_URL=http://127.0.0.1:8080 npm run ios
 ```
 
-Üretim derlemesinde `https://` dışındaki adresler reddedilir.
+Android Emulator/cihazda loopback yönlendirmesi için önce `adb reverse tcp:8080 tcp:8080` çalıştırıp aynı
+`EXPO_PUBLIC_API_*` değişkenleriyle `npm run android` başlatın. Gerçek cihazda `EXPO_PUBLIC_API_URL` için
+geliştirme makinesinin LAN adresini kullanın. API Compose ile `127.0.0.1:8080` üzerinde başlatılır.
+
+Backend geliştirme profilinde SMS gateway ayarlanmamışsa OTP gönderimi kapalıdır; test OTP'si normal
+development/production API yanıtlarında bulunmaz. Gerçek mobil giriş için davetli/kayıtlı kullanıcı ve
+Jasmin bağlantısı gerekir. Test kodu yalnızca yalıtılmış `OKD_ENV=test` E2E çalışmasında döndürülür.
+Üretim derlemesinde `https://` dışındaki API adresleri reddedilir. Backend E2E'si gerçek DB/Redis/Vault
+üzerinde API HTTP router'ını test eder; gerçek iOS/Android cihaz akışı değildir.
 
 ## Komutlar
 

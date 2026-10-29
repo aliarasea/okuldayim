@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import * as Crypto from 'expo-crypto';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
@@ -58,10 +59,30 @@ function PickupRequestForm({ child, onCreated }: { child: ChildSummary; onCreate
   const persons = useQuery({ queryKey: ['yetkili', child.id], queryFn: () => api.pickup.authorizedPersons(child.id) });
   const [personId, setPersonId] = useState<string | null>(null);
   const [eta, setEta] = useState<EtaOption>('10');
+  const idempotencyKeys = useRef(new Map<string, string>());
   const create = useMutation({
-    mutationFn: (selectedPersonId: string) => api.pickup.create(child.id, selectedPersonId, Number(eta)),
-    onSuccess: onCreated,
+    mutationFn: ({ selectedPersonId, selectedEta, idempotencyKey }: {
+      selectedPersonId: string;
+      selectedEta: number;
+      idempotencyKey: string;
+    }) => api.pickup.create(child.id, selectedPersonId, selectedEta, idempotencyKey),
+    onSuccess: (request, variables) => {
+      idempotencyKeys.current.delete(JSON.stringify([child.id, variables.selectedPersonId, variables.selectedEta]));
+      onCreated(request);
+    },
   });
+
+  const submit = () => {
+    if (!personId) return;
+    const selectedEta = Number(eta);
+    const fingerprint = JSON.stringify([child.id, personId, selectedEta]);
+    let idempotencyKey = idempotencyKeys.current.get(fingerprint);
+    if (!idempotencyKey) {
+      idempotencyKey = Crypto.randomUUID();
+      idempotencyKeys.current.set(fingerprint, idempotencyKey);
+    }
+    create.mutate({ selectedPersonId: personId, selectedEta, idempotencyKey });
+  };
 
   if (persons.isPending) return <LoadingState />;
   if (persons.isError) return <ErrorState error={persons.error} onRetry={() => void persons.refetch()} />;
@@ -100,7 +121,7 @@ function PickupRequestForm({ child, onCreated }: { child: ChildSummary; onCreate
         title={t('pickup.onMyWay')}
         disabled={!personId}
         loading={create.isPending}
-        onPress={() => personId && create.mutate(personId)}
+        onPress={submit}
       />
     </>
   );

@@ -1,10 +1,10 @@
 # Okuldayım Backend İhtiyaç Analizi (Rust)
 
-28 Ekim 2026 · Sürüm 1.2 · Durum: uygulanacak tasarım · Kapsam: backend servisleri, mobil istemciyle bağlantı ve kullanım akışları
+28 Ekim 2026 · Sürüm 1.2 · Durum: hedef tasarım; uygulama durumu 30 Ekim 2026 · Kapsam: backend servisleri, mobil istemciyle bağlantı ve kullanım akışları
 
-İlgili belgeler: [Ürün gereksinimleri v1.2](../school-parent-communication-requirements.md) · [Altyapı](../infra/README.md) · [Mobil uygulama](../mobile/README.md)
+İlgili belgeler: [Ürün gereksinimleri v1.2](../school-parent-communication-requirements.md) · [Altyapı](../infra/README.md) · [Mobil uygulama](../mobile/README.md) · [Mobil–backend use case'leri ve E2E sınırı](mobile-backend-use-cases.md)
 
-Bağımlı sistemlerin ayrı analizleri ve birlikte rafine edilen kabul koşulları: [Sistem ihtiyaç analizleri](systems/README.md). Depoda Rust API runtime'ı ve yerel Compose entegrasyonu vardır; ürün API'si ve üretim ortamı henüz yoktur. Aşağıdaki teknoloji, API, test ve işletim tasarımı hedef mimaridir. Mevcut uygulamayla hedef arasındaki farklar ayrıca belirtilir.
+Bağımlı sistemlerin ayrı analizleri ve birlikte rafine edilen kabul koşulları: [Sistem ihtiyaç analizleri](systems/README.md). Rust API runtime'ı, Faz 1a ürün uçlarının bir bölümü ve yerel Compose entegrasyonu uygulanmıştır; Faz 1a kapsamı ve kalan işler aşağıda belirtilir. Bu belge daha geniş ürün için hedef mimariyi de tanımlar; hedef olarak yazılmış her akışın uygulanmış olduğu varsayılmamalıdır.
 
 ## İçindekiler
 
@@ -29,17 +29,17 @@ Bağımlı sistemlerin ayrı analizleri ve birlikte rafine edilen kabul koşulla
 
 Backend; mobil uygulamanın ve kurum web panelinin tek veri kaynağıdır. Kimlik doğrulama, yetkilendirme, kiracı izolasyonu, KVKK kuralları (rıza, saklama, imha, başvuru), canlı olaylar, bildirimler ve medya işleme backend'in sorumluluğundadır.
 
-**Başlangıç noktası.** Mobil uygulama bugün bellek içi bir mock sunucuyla çalışıyor. Backend'in ilk hedefi mevcut kullanıcı akışlarını gerçek veriyle karşılamaktır. İngilizce yollar ve aşağıda belirtilen DTO eklemeleri istemci/mock/sözleşme testlerine birlikte uygulanır; mevcut mock tüm MVP'nin uygulanmış sözleşmesi sayılmaz:
+**Başlangıç noktası ve geçiş.** Mobil uygulama varsayılan olarak sentetik verili bellek içi mock sunucuyla çalışır; `EXPO_PUBLIC_API_MODE=http` gerçek backend taşıyıcısını seçer. Faz 1a'da kapsanan İngilizce yollar Rust handler'larıyla eşlenmiştir. Aşağıdaki daha geniş DTO ve uç noktalar hedef sözleşmedir; mevcut mock tüm MVP'nin uygulanmış sözleşmesi sayılmaz:
 
-**Uygulama durumu (29 Ekim 2026).** Depoda Rust workspace ve Compose ile başlatılabilen API runtime'ı vardır. Şimdilik Vault AppRole/DB lease, PostgreSQL pool rotasyonu ve tenant transaction temeli, Redis bağlantısı, isteğe bağlı Jasmin SMS transport adaptörü ve operasyon uç noktaları uygulanmıştır. Ürün API yolları, kimlik doğrulama, SMS outbox/worker, DLR callback'i, seed, migration ikilisi ve mobil contract testleri henüz uygulanmadı; bu runtime ürünü pilot kullanıma hazır ilan etmez.
+**Uygulama durumu (30 Ekim 2026).** Compose API runtime'ı Vault AppRole/DB lease, PostgreSQL RLS/pool rotasyonu ve Redis kullanır. Rust Faz 1a OTP/session auth ve `/v1` use case handler'ları; mobil HTTP uç nokta eşlemesi; idempotency; sentetik tenant üzerinde gerçek HTTP + PostgreSQL/Redis/Vault E2E uygulanmış ve yerelde doğrulanmıştır. Compose migration aracı `0000`–`0003` şemasını kurar. Kalanlar: kalıcı worker/SMS outbox ve retry, SMTP akışı, SMS DLR callback'i, S3 medya yükleme/indirme, veri dışa aktarma işleyicisi, seed aracı ve gerçek iOS/Android cihaz E2E'si. Bu nedenle Faz 1a backend çekirdeği çalışır durumdadır; ürünün tamamı/pilot hazırlığı olarak değerlendirilmemelidir.
 
 | Referans | Konum | Backend için anlamı |
 | --- | --- | --- |
 | API tipleri | `mobile/src/core/api/types.ts` | JSON alan adları ve şekilleri (camelCase) |
-| Uç noktalar | `mobile/src/core/api/endpoints.ts` | Mevcut mock yolları, metot, gövde |
+| Uç noktalar | `mobile/src/core/api/endpoints.ts` | İngilizce `/v1` yolları, metot ve gövde |
 | Hata modeli | `mobile/src/core/api/errors.ts` | Hata kodları ve HTTP durumları |
 | Davranış | `mobile/src/core/api/mock/mockServer.ts` | Kurallar (kapsam, en kısıtlayıcı rıza, PIN, OTP sınırları) |
-| Davranış testleri | `mobile/src/core/api/mock/__tests__/mockServer-test.ts` | Backend'e karşı da koşacak sözleşme senaryoları |
+| Davranış testleri | `mobile/src/core/api/mock/__tests__/mockServer-test.ts` | Mock davranış testleri; backend E2E'sinden ayrıdır |
 
 **Fazlar.**
 
@@ -569,7 +569,7 @@ Notlar:
 | Konu | Kural |
 | --- | --- |
 | Taban adres | `https://api.<alan>/v1`; geliştirmede `http://127.0.0.1:8080/v1` |
-| Yol adları | Kaynaklar, alt yollar, yol parametreleri ve sorgu parametreleri İngilizcedir. Mevcut mobil mock'taki Türkçe yollar backend'e geçişte İngilizce karşılıklarına taşınır; JSON alan adları bu değişiklik kapsamında korunur. |
+| Yol adları | Kaynaklar, alt yollar, yol parametreleri ve sorgu parametreleri İngilizcedir. Mobil HTTP istemcisi ve mock sunucu bu İngilizce yolları kullanır; JSON alan adları mevcut mobil DTO'larıyla aynı kalır. |
 | Biçim | JSON, UTF-8, alan adları camelCase (mobildeki `types.ts` ile aynı) |
 | Zaman | Anlar ISO 8601 UTC (`2026-10-28T13:00:00Z`); gün kavramı `YYYY-MM-DD` ve `Europe/Istanbul` saat dilimine göre |
 | Kimlik | UUID v7; zaman bileşeni vardır, gizlilik/yetkilendirme aracı değildir. Her kaynakta kapsam kontrolü gerekir. |
@@ -728,9 +728,9 @@ POST /v1/pickup-requests/{requestId}/handover {"pin":"1111"}
 | 2–3 | Tam kurum yönetimi §6.6'da tanımlanır (Faz 2); gelişmiş rapor/PDF ve operasyon otomasyonu Faz 3. Zorunlu 1b idari işlemleri bu faza ertelenmez. |
 | Pilot sonrası | `POST /v1/pickup-requests/{requestId}/approaching` (PICK-09, `KONUM`) · NOT-03 SMS yedeği · §4.1'deki diğer maddeler |
 
-### 6.5 Eksik MVP sözleşmelerinin tamamlanması
+### 6.5 Kalan MVP sözleşmeleri ve genişletmeler
 
-Yollar hedef sözleşmedir; handler/istemci DTO'ları henüz uygulanmamıştır. Yönetim kurum kapsamı ve MFA, kullanıcı yolları hedef ilişki/kapsam kontrolü ister. Medya/döküm GET bağlantısı §3.11'deki yetkili geçitten gelir.
+Bu tablo Faz 1a E2E kapsamındaki temel uçları tekrar listelemez; eksik yolları ve mevcut yolların ileri fazlarda gereken genişletmelerini tanımlar. Örneğin temel `GET/POST /v1/privacy/requests` ve `POST /v1/privacy/data-exports` handler'ları vardır; kapsamlı yanıt/indirme işleyicisi ve worker akışı yoktur. Yönetim kurum kapsamı ve MFA, kullanıcı yolları hedef ilişki/kapsam kontrolü ister. Medya/döküm GET bağlantısı §3.11'deki yetkili geçitten gelir.
 
 | Faz | Yollar | Davranış/DTO |
 | --- | --- | --- |
@@ -777,31 +777,31 @@ Liste uç noktaları §6.1 cursor/limit kurallarına uyar; eşzamanlı yönetim 
 
 ---
 
-## 7. Mobil istemciyle bağlantı: nerede, nasıl
+## 7. Mobil istemciyle bağlantı: mevcut durum ve kalan işler
 
 ### 7.1 Bağlantı noktaları
 
-| Mobil dosya | Bugün | Backend bağlanınca |
+| Mobil dosya | Mevcut durum | Kalan işler |
 | --- | --- | --- |
-| `src/core/config.ts` | `EXPO_PUBLIC_API_MODE` yoksa mock | `EXPO_PUBLIC_API_MODE=http`, `EXPO_PUBLIC_API_URL=https://api.<alan>`. Üretimde `https` dışı adres reddedilir |
-| `src/core/api/index.ts` | Taşıyıcıyı seçer (mock / HTTP) | Değişiklik yok |
-| `src/core/api/endpoints.ts` | Mock için Türkçe yollar | Bu belgede tanımlanan İngilizce API yollarına geçirilir |
-| `src/core/api/httpTransport.ts` | Hazır: zaman aşımı, JSON, ağ hatası sınıflandırması | Değişiklik yok |
-| `src/core/api/client.ts` | `Authorization`, `Idempotency-Key`, `Accept-Language`, 401'de tek yenileme | Teslim talebinde `Idempotency-Key`; Faz 2'de `X-App-Version`/`X-Platform` |
-| `src/core/api/transport.ts`, `errors.ts` | `HttpMethod` yalnız GET/POST/PUT/DELETE; bilinen hata kodları | Faz 2 `PATCH` yolları için `PATCH`; `upgrade_required` kodu |
-| `src/core/auth/tokens.ts` | Tek uçuşlu yenileme, sunucu reddinde oturum sonu olayı | Değişiklik yok |
-| `src/core/api/types.ts` | Elle yazılmış | OpenAPI'den üretilir (`openapi-typescript`); CI üretilen dosyayla farkı kontrol eder |
-| `src/core/offline/*` | Şifreli kuyruk, idempotency anahtarı | Öğün kaydına `recordedAt` eklenir (3.8) |
-| `src/features/pickup/*` | 10 sn'de bir sorgu | WebSocket + eventId/sürüm ve aktif teslimde en çok 5 sn REST uzlaştırması; diğer ekranlarda 60 sn. İptal ve "kişi listede değil" eylemleri, `IPTAL`/`SURESI_DOLDU` durumları eklenir; PIN aktif talep GET'inden okunmaya devam eder |
-| Push | Yok | `expo-notifications` eklenir; Android FCM/iOS APNs native token'ı sağlayıcı/ortamıyla `POST /v1/devices` üzerinden kaydedilir; bildirime dokununca ayrıntı REST ile çekilir |
-| `src/core/api/mock/*` | Varsayılan taşıyıcı | Geliştirme ve UI testleri için kalır; davranış testleri backend'e karşı da koşar (bölüm 11) |
+| `src/core/config.ts` | `EXPO_PUBLIC_API_MODE` yoksa mock; `http` modu ve API URL yapılandırması mevcut | Üretim ortamı/alan adı ve HTTPS dağıtım ayarları |
+| `src/core/api/index.ts` | Mock veya HTTP taşıyıcısını seçer | Değişiklik yok |
+| `src/core/api/endpoints.ts` | HTTP ve mock için İngilizce `/v1` yolları tanımlıdır | Yeni ürün uçları eklendikçe eşlemeyi genişletmek |
+| `src/core/api/httpTransport.ts` | JSON, timeout ve ağ hatası sınıflandırması mevcut | Üretim gözlemlenebilirliği ve cihaz ağlarında doğrulama |
+| `src/core/api/client.ts` | `Authorization`, `Idempotency-Key` ve 401'de tek yenileme akışı mevcut | Faz 2'de `X-App-Version`/`X-Platform` ve sürüm kapısı |
+| `src/core/api/transport.ts`, `errors.ts` | Temel HTTP metotları ve bilinen hata kodları mevcut | Faz 2 `PATCH` yolları ve `upgrade_required` kodu |
+| `src/core/auth/tokens.ts` | Yenileme ve oturum sonlandırma akışı mevcut | Güvenli depo davranışını gerçek cihazlarda doğrulamak |
+| `src/core/api/types.ts` | DTO'lar elle yazılmış | OpenAPI'den tip üretimi ve CI fark kontrolü |
+| `src/core/offline/*` | Şifreli kuyruk ve idempotency altyapısı mevcut | Sunucuyla çevrimdışı uzlaştırmayı ve `recordedAt` kuralını genişletmek |
+| `src/features/pickup/*` | HTTP API'ye bağlı teslim akışı ve idempotency anahtarı mevcut | WebSocket/push, iptal ve diğer ileri faz davranışları |
+| Push | Native push kaydı/dağıtımı yok | `expo-notifications`, FCM/APNs ve `POST /v1/devices` akışı |
+| `src/core/api/mock/*` | Varsayılan taşıyıcı; demo ve UI/domain testlerinde kullanılır | Sentetik mock korunur; gerçek HTTP E2E'si ayrı doğrulanır (bkz. §11 ve [use case belgesi](mobile-backend-use-cases.md)) |
 
 ### 7.2 Ortamlar
 
 | Ortam | Mobil yapılandırma | Backend | Veri |
 | --- | --- | --- | --- |
 | Yerel (mock) | Varsayılan | Yok | Mobildeki sentetik veri |
-| Yerel (gerçek backend) | `EXPO_PUBLIC_API_MODE=http EXPO_PUBLIC_API_URL=http://127.0.0.1:8080` | `cargo run` + `infra/` Docker Compose | `okuldayim-seed` ile sentetik veri |
+| Yerel (gerçek backend) | `EXPO_PUBLIC_API_MODE=http EXPO_PUBLIC_API_URL=http://127.0.0.1:8080` | `infra/` Docker Compose API ve migration'ları | Geliştirme verisi; E2E kendi sentetik fixture'ını kurup temizler |
 | Test / staging | EAS build profili `preview`: `https://api.test.<alan>` | Türkiye'deki test ortamı | Yalnızca sentetik veri |
 | Üretim | EAS build profili `production`: `https://api.<alan>` | Türkiye'deki üretim ortamı | Gerçek veri (pilot KVKK kapısından sonra) |
 
@@ -810,72 +810,58 @@ Liste uç noktaları §6.1 cursor/limit kurallarına uyar; eşzamanlı yönetim 
 
 ### 7.3 Sözleşmenin senkron tutulması
 
-1. Backend'de her uç nokta `utoipa` ile belgelenir; `okuldayim-api` `/openapi.json` yayınlar ve CI dosyayı `backend/openapi.json` olarak saklar.
-2. Mobil CI `openapi-typescript` ile tipleri üretir ve `types.ts` ile farkı kontrol eder.
-3. Mock sunucu yeni uç noktaları aynı sözleşmeyle uygular; davranış testleri iki tarafta da aynı senaryoları koşar.
+1. API `/openapi.json` yayınlar; Faz 1a gerçek HTTP E2E testi uygulanan yolları bu sözleşmede doğrular.
+2. Mobil `endpoints.ts` İngilizce yolları kullanır; uç nokta eşlemesi mobil testlerinde, backend davranışı gerçek HTTP E2E'sinde doğrulanır.
+3. Mock sunucu demo ve UI/domain testleri için kalır. Mock davranış testleri gerçek backend'e karşı çalışan sözleşme testi değildir.
 4. Kırıcı değişiklik yalnızca yeni sürümle (`/v2`) yapılır. Eski uygulama sürümlerine `426` dönülür ve uygulama güncelleme ekranı gösterir.
 
-Kod üretimi ve `test:contract` bugün `mobile/package.json` içinde yoktur. `openapi-typescript`, generated DTO dizini, mock/HTTP ortak test harness'i ve ilgili CI/npm komutları hazırlanmalıdır. Türkçe mock yolları, `tarih` → `date`, yeni DTO/hata kodları ve eski outbox kayıt yolları birlikte geçirilir; kayıtlı kuyruğa dönüşüm veya kontrollü eski veri tüketimi gerekir.
+Henüz yapılmayan sözleşme işleri: OpenAPI'den mobil DTO kod üretimi, ortak mock/HTTP contract harness'i ve bunlara ait CI/npm kapıları. Yeni DTO/hata kodları eklenirken iki taşıyıcı ve eski çevrimdışı kuyruk kayıtları birlikte ele alınmalıdır.
 
 ---
 
 ## 8. Adım adım kullanım
 
+§8.1 mevcut yerel Compose ve doğrulanan backend E2E akışını anlatır. §8.2 ve sonrası hedef süreç tasarımlarıdır; içlerindeki worker, bildirim, yönetim paneli ve diğer ileri faz adımları uygulanmış kabul edilmemelidir. Uygulanan mobil use case'ler ve test kapsamı [ayrı belgede](mobile-backend-use-cases.md) tutulur.
+
 ### 8.1 Geliştirici: yerelde uçtan uca çalıştırma
 
-> Altyapı ve operasyonel API runtime'ı bugün çalıştırılabilir. Ürün akışları, worker, seed ve mobil sözleşme testleri tamamlanana kadar uçtan uca Faz 1a kabulü sağlanmış sayılmaz.
+> Faz 1a API çekirdeği ve gerçek backend E2E'si yerelde çalışır. Kalıcı SMS/SMTP worker, seed ve cihaz üstü mobil E2E tamamlanana kadar bütün ürün için uçtan uca kabul verilmiş sayılmaz.
 
-Ön koşullar: Docker Compose v2 ve yerel registry erişimi. Ürün API yolları, migration/seed ikilileri ve contract harness henüz hazırlanmalıdır. Operasyonel API runtime'ı için:
+Ön koşullar: Docker Compose v2, yerel registry erişimi ve geliştirme için `infra/.env`. Uygulama veritabanı volume'u korunur; şema migration aracı mevcut veritabanına artımlı migration uygular.
 
-1. **Altyapıyı başlatın.**
+1. **Altyapıyı ve API'yi başlatın.**
    ```sh
    colima start                                   # macOS'ta Docker çalışmıyorsa
-   cd infra && ./scripts/generate-dev-env.sh && docker compose up -d --build
+   cd infra
+   docker compose up -d --build
    docker compose ps                              # API healthy; bootstrap/init servisleri Exited (0)
    ```
-2. **Backend ortam dosyasını hazırlayın.**
+2. **Şemayı güncelleyin.** Bu komut `infra/.env` içindeki `OKULDAYIM_MIGRATOR_PASSWORD` ile bağlanır, migration geçmişini doğrular ve mevcut volume'u silmez.
    ```sh
-   cd backend && cp .env.example .env
-   # Yerel VAULT_ROLE_ID/VAULT_SECRET_ID değerlerini backend .env içinde
-   # OKD_VAULT_ROLE_ID/OKD_VAULT_SECRET_ID adlarıyla eşleyin.
-   # Migration için: OKD_MIGRATOR_URL=postgres://okuldayim_migrator:<infra/.env içindeki parola>@127.0.0.1:5432/okuldayim
+   docker compose --profile tools run --rm postgres-migrate
    ```
-
-   | Değişken | Örnek | Açıklama |
-   | --- | --- | --- |
-   | `OKD_ENV` | `development` | Yalnız çalışma zamanı profili; demo/test özellikleri Cargo `demo` özelliğiyle derleme zamanında ayrılır (RUN08) |
-   | `OKD_HTTP_ADDR` | `127.0.0.1:8080` | |
-   | `OKD_VAULT_ADDR` | `http://127.0.0.1:8200` | Üretimde TLS |
-   | `OKD_VAULT_ROLE_ID`, `OKD_VAULT_SECRET_ID` | — | Yerel AppRole; üretimde barındırmaya uygun kısa ömürlü workload kimliği |
-   | `OKD_DB_HOST`, `OKD_DB_PORT`, `OKD_DB_NAME` | `127.0.0.1`, `5432`, `okuldayim` | Kullanıcı adı ve parola Vault'tan gelir |
-   | `OKD_MIGRATOR_URL` | `postgres://okuldayim_migrator:…@127.0.0.1:5432/okuldayim` | Yalnız `okuldayim-migrate`; yerelde parola `infra/.env`'den, üretimde ayrı kısa ömürlü kimlik |
-   | `OKD_REDIS_URL` | `redis://app@127.0.0.1:6379` | Parola Vault KV'den |
-   | `OKD_S3_ENDPOINT`, `OKD_S3_PUBLIC_URL` | `http://127.0.0.1:9000` | Anahtarlar Vault KV'den; imzalı URL'ler dış adresle üretilir |
-   | `OKD_SMS_GATEWAY_URL` | boş (devre dışı) | Jasmin `/send` URL'si; `JASMIN_USERNAME`/`JASMIN_PASSWORD` yalnız Vault bootstrap girdisi, gerçek SMSC operatör bağlantısı ayrıca gerekir |
-   | `OKD_SMTP_URL` | `smtp://127.0.0.1:1025` | |
-   | `RUST_LOG` | `info,okuldayim=debug` | |
-   | `OTEL_EXPORTER_OTLP_ENDPOINT` | — | İsteğe bağlı |
-
-3. **Şemayı kurun.** `cargo run -p okuldayim-migrate` (tablolar, RLS politikaları, append-only yetkileri).
-4. **Sentetik veriyi yükleyin.** `cargo run -p okuldayim-seed`. Demo kurumu açar (Vault'ta `kurum-<uuid>` anahtarı oluşur) ve mobil mock'taki numaralarla aynı kullanıcıları ekler.
-5. **API'yi başlatın.** `cargo run -p okuldayim-api`. Kontrol: `curl http://127.0.0.1:8080/healthz`; sözleşme: `http://127.0.0.1:8080/openapi.json` (Swagger arayüzü yalnızca geliştirmede açılır).
-6. **Worker'ı başlatın.** `cargo run -p okuldayim-worker` (SMS, push, imha ve diğer işler).
-7. **Mobil uygulamayı backend'e bağlayın.**
+3. **Hazır olmayı kontrol edin.** API Compose tarafından başlatılır; `/readyz` PostgreSQL ve Redis durumunu, `/openapi.json` uygulanmış HTTP sözleşmesini gösterir.
+4. **Mobil uygulamayı backend'e bağlayın.**
    ```sh
    cd mobile
    EXPO_PUBLIC_API_MODE=http EXPO_PUBLIC_API_URL=http://127.0.0.1:8080 npm run ios
-   # Android: adb reverse tcp:8080 tcp:8080 && EXPO_PUBLIC_API_MODE=http EXPO_PUBLIC_API_URL=http://127.0.0.1:8080 npm run android
+   # Android: önce adb reverse tcp:8080 tcp:8080, sonra aynı değişkenlerle npm run android
    ```
-8. **Giriş yapın.** 555 000 00 01 numarasını girin; doğrulama kodunu Mailpit arayüzünden (`http://127.0.0.1:8025`) okuyun.
-9. **Testleri çalıştırın.**
+   Gerçek kullanıcı girişi için davetli/kayıtlı telefon ve Jasmin `/send` gateway yapılandırması gerekir. Development profilinde sabit OTP yoktur; Mailpit/SMTP OTP akışı henüz uygulanmamıştır.
+5. **Backend E2E'yi çalıştırın.** Komut `backend/` dizininden çalıştırılır; test kendi sentetik fixture'ını oluşturur ve temizler. `testCode` sadece bu `OKD_ENV=test` API sürecinde bulunur.
    ```sh
-   cd backend && cargo test                        # birim + entegrasyon (sqlx::test her test için izole DB)
-   cd mobile && CONTRACT_API_URL=http://127.0.0.1:8080 npm run test:contract   # davranış testleri gerçek backend'e karşı
+   set -a
+   . ../infra/.env
+   set +a
+   OKD_RUN_E2E=1 OKD_ENV=test \
+     OKD_VAULT_APPROLE_FILE=../../../infra/.local/vault/backend-approle.env \
+     cargo test -p okuldayim-api --bin okuldayim-api \
+     phase1a_use_cases_over_real_http_postgres_redis_and_vault -- --nocapture
    ```
 
 ### 8.2 Senaryo: kurum açılışı ve davet
 
-1. Platform yöneticisi kurumu açar (`POST /v1/admin/organizations`, Faz 2; o zamana kadar `okuldayim-seed` / yönetim aracı).
+1. Hedefte platform yöneticisi kurumu açar (`POST /v1/admin/organizations`, Faz 2). Yönetim uçları ve seed aracı henüz uygulanmadı; yerel E2E kendi sentetik fixture'ını kurar.
 2. Backend Vault'ta `kurum-<uuid>` Transit anahtarını oluşturur (`auto_rotate_period=8760h`), varsayılan saklama politikalarını ve kurumun aydınlatma metni taslağını yazar.
 3. Kurum yöneticisi web panelden sınıfları, çocukları ve velileri girer veya CSV ile içe aktarır. Yüklenen dosya işlenince silinir; sağlık alanları içe aktarılmaz.
 4. Backend her veli için tek kullanımlık, 7 gün geçerli davet oluşturur ve worker SMS gönderir.

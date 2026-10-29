@@ -215,6 +215,80 @@ impl PostgresIntegration {
         .is_ok_and(|result| result.is_ok())
     }
 
+    /// Resolves a verified phone contact through the narrowly scoped SECURITY DEFINER function.
+    /// No user/contact table scan is made under an unset RLS identity.
+    pub async fn find_user_by_phone_index(
+        &self,
+        version: i16,
+        index: &[u8],
+    ) -> Result<Option<Uuid>, RuntimeError> {
+        let pool = self.ready_pool().await?;
+        sqlx::query_scalar::<_, Option<Uuid>>(
+            "SELECT app.find_user_id_by_blind_index('TELEFON', $1, $2)",
+        )
+        .bind(version)
+        .bind(index)
+        .fetch_one(&pool)
+        .await
+        .map_err(|_| RuntimeError::DatabaseUnavailable)
+    }
+
+    /// Finds the owner of an opaque refresh-token hash using a narrowly scoped database function.
+    pub async fn find_refresh_owner(
+        &self,
+        token_hash: &[u8],
+    ) -> Result<Option<Uuid>, RuntimeError> {
+        let pool = self.ready_pool().await?;
+        sqlx::query_scalar::<_, Option<Uuid>>("SELECT app.find_user_id_by_refresh_hash($1)")
+            .bind(token_hash)
+            .fetch_one(&pool)
+            .await
+            .map_err(|_| RuntimeError::DatabaseUnavailable)
+    }
+
+    pub async fn has_pending_phone_invitation(
+        &self,
+        version: i16,
+        index: &[u8],
+    ) -> Result<bool, RuntimeError> {
+        let pool = self.ready_pool().await?;
+        sqlx::query_scalar::<_, bool>("SELECT app.has_pending_phone_invitation($1, $2)")
+            .bind(version)
+            .bind(index)
+            .fetch_one(&pool)
+            .await
+            .map_err(|_| RuntimeError::DatabaseUnavailable)
+    }
+
+    pub async fn register_user_from_phone_invitation(
+        &self,
+        user_id: Uuid,
+        phone_ciphertext: &str,
+        version: i16,
+        index: &[u8],
+    ) -> Result<Option<Uuid>, RuntimeError> {
+        let pool = self.ready_pool().await?;
+        sqlx::query_scalar::<_, Option<Uuid>>(
+            "SELECT app.register_user_from_phone_invitation($1, $2, $3, $4)",
+        )
+        .bind(user_id)
+        .bind(phone_ciphertext)
+        .bind(version)
+        .bind(index)
+        .fetch_one(&pool)
+        .await
+        .map_err(|_| RuntimeError::DatabaseUnavailable)
+    }
+
+    /// Starts a transaction with only the authenticated user context. This is used for
+    /// user-scoped session tables before an organization has been selected.
+    pub async fn begin_user(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Transaction<'static, Postgres>, RuntimeError> {
+        self.begin_context(user_id, None).await
+    }
+
     /// Opens a short-lived transaction and sets RLS context transaction-locally so pooled
     /// connections cannot carry one request's tenant identity into another request.
     #[allow(dead_code)] // Kept as the single DB access seam until product handlers are added.
@@ -222,6 +296,37 @@ impl PostgresIntegration {
         &self,
         context: TenantContext,
     ) -> Result<Transaction<'static, Postgres>, RuntimeError> {
+        self.begin_context(context.user_id, Some(context.organization_id))
+            .await
+    }
+
+    async fn begin_context(
+        &self,
+        user_id: Uuid,
+        organization_id: Option<Uuid>,
+    ) -> Result<Transaction<'static, Postgres>, RuntimeError> {
+        let pool = self.ready_pool().await?;
+        let mut transaction = pool
+            .begin()
+            .await
+            .map_err(|_| RuntimeError::DatabaseUnavailable)?;
+        let organization_id = organization_id.map_or_else(String::new, |value| value.to_string());
+        if sqlx::query(
+            "SELECT set_config('app.user_id', $1, true), set_config('app.organization_id', $2, true)",
+        )
+        .bind(user_id.to_string())
+        .bind(organization_id)
+        .execute(&mut *transaction)
+        .await
+        .is_err()
+        {
+            let _ = transaction.rollback().await;
+            return Err(RuntimeError::DatabaseUnavailable);
+        }
+        Ok(transaction)
+    }
+
+    async fn ready_pool(&self) -> Result<PgPool, RuntimeError> {
         let (pool, lease_expires_at) = {
             let state = self.inner.state.read().await;
             (state.pool.clone(), state.lease_expires_at)
@@ -234,23 +339,6 @@ impl PostgresIntegration {
         {
             return Err(RuntimeError::DatabaseUnavailable);
         }
-
-        let mut transaction = pool
-            .begin()
-            .await
-            .map_err(|_| RuntimeError::DatabaseUnavailable)?;
-        if sqlx::query(
-            "SELECT set_config('app.user_id', $1, true), set_config('app.organization_id', $2, true)",
-        )
-        .bind(context.user_id.to_string())
-        .bind(context.organization_id.to_string())
-        .execute(&mut *transaction)
-        .await
-        .is_err()
-        {
-            let _ = transaction.rollback().await;
-            return Err(RuntimeError::DatabaseUnavailable);
-        }
-        Ok(transaction)
+        Ok(pool)
     }
 }

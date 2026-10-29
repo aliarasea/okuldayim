@@ -1,4 +1,4 @@
-// Gerçek src/app rotaları + mock sunucu ile uçtan uca akış: giriş → aydınlatma → rıza → rol ana ekranı.
+// Gerçek src/app rotaları + ApiClient/HTTP transport + sözleşme fixture'ı: giriş → onboarding → ana ekran.
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
 
 import i18n from '@/core/i18n';
@@ -38,6 +38,41 @@ jest.mock('expo-splash-screen', () => ({
   preventAutoHideAsync: async () => true,
   hide: () => undefined,
 }));
+
+// UI E2E'leri gerçek ApiClient + HTTP transport üzerinden çalışır. Fetch adaptörü gerçek Rust
+// backend yerine aynı /v1 sözleşmesini uygulayan sentetik domain fixture'ına bağlanır.
+jest.mock('@/core/config', () => ({
+  config: { apiMode: 'http', apiBaseUrl: 'http://backend.test', requestTimeoutMs: 15_000 },
+}));
+
+jest.mock('@/core/api/httpTransport', () => {
+  const actual = jest.requireActual<typeof import('@/core/api/httpTransport')>('@/core/api/httpTransport');
+  const { createMockTransport } = jest.requireActual<typeof import('@/core/api/mock/mockServer')>(
+    '@/core/api/mock/mockServer',
+  );
+  const backend = createMockTransport({ latencyMs: 0 });
+  const fetchAdapter = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input));
+    const response = await backend.send({
+      method: String(init?.method ?? 'GET') as 'GET' | 'POST' | 'PUT' | 'DELETE',
+      path: url.pathname,
+      query: Object.fromEntries(url.searchParams.entries()),
+      body: typeof init?.body === 'string' ? JSON.parse(init.body) as unknown : undefined,
+      headers: (init?.headers ?? {}) as Record<string, string>,
+    });
+    return {
+      status: response.status,
+      text: async () => (response.body === null ? '' : JSON.stringify(response.body)),
+    } as Response;
+  });
+
+  return {
+    createHttpTransport: (baseUrl: string, timeoutMs: number) => {
+      globalThis.fetch = fetchAdapter as typeof fetch;
+      return actual.createHttpTransport(baseUrl, timeoutMs);
+    },
+  };
+});
 
 // SQLCipher yerine bellek içi ayarlar ve kuyruk.
 jest.mock('@/core/offline/database', () => {

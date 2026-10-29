@@ -79,9 +79,9 @@ describe('mock sunucu: KVKK kuralları', () => {
     expect(me.pendingNoticeKurumIds).toEqual(['k-papatya']);
     expect(me.consentReviewChildIds).toEqual(['ch-ada', 'ch-can']);
 
-    expect((await call('POST', '/v1/kurumlar/k-papatya/aydinlatma/2026-10/okundu')).status).toBe(204);
+    expect((await call('POST', '/v1/organizations/k-papatya/privacy-notice/2026-10/acknowledgement')).status).toBe(204);
     // Hiç rıza vermeden kaydetmek de incelemeyi tamamlar (rıza hizmet şartı değildir).
-    expect((await call('PUT', '/v1/cocuklar/ch-ada/rizalar', { textVersion: '2026-10', decisions: [] })).status).toBe(200);
+    expect((await call('PUT', '/v1/children/ch-ada/consents', { textVersion: '2026-10', decisions: [] })).status).toBe(200);
 
     me = (await call('GET', '/v1/me')).body as Me;
     expect(me.pendingNoticeKurumIds).toEqual([]);
@@ -92,7 +92,7 @@ describe('mock sunucu: KVKK kuralları', () => {
     const transport = createMockTransport({ latencyMs: 0, now: () => NOW });
     const call = authed(transport, await signIn(transport, '+905550000001'));
 
-    const saved = await call('PUT', '/v1/cocuklar/ch-ada/rizalar', {
+    const saved = await call('PUT', '/v1/children/ch-ada/consents', {
       textVersion: '2026-10',
       decisions: [{ type: 'FOTO_GRUP', decision: 'GRANTED' }],
     });
@@ -103,31 +103,31 @@ describe('mock sunucu: KVKK kuralları', () => {
   it('başka bir çocuğun rızalarına erişimi engeller', async () => {
     const transport = createMockTransport({ latencyMs: 0, now: () => NOW });
     const call = authed(transport, await signIn(transport, '+905550000001'));
-    expect((await call('GET', '/v1/cocuklar/ch-ela/rizalar')).status).toBe(403);
+    expect((await call('GET', '/v1/children/ch-ela/consents')).status).toBe(403);
   });
 
   it('sağlık rızası olmayan çocuğun alerji bilgisini öğretmene göndermez', async () => {
     const transport = createMockTransport({ latencyMs: 0, now: () => NOW });
     const call = authed(transport, await signIn(transport, '+905550000002'));
-    const classroom = (await call('GET', '/v1/siniflar/c-kelebek/bugun')).body as ClassToday;
+    const classroom = (await call('GET', '/v1/classes/c-kelebek/today')).body as ClassToday;
     const allergens = Object.fromEntries(classroom.children.map((child) => [child.id, child.allergens]));
     expect(allergens['ch-ada']).toEqual(['fıstık']);
     expect(allergens['ch-mert']).toBeNull();
-    expect((await call('GET', '/v1/siniflar/c-ari/bugun')).status).toBe(403);
+    expect((await call('GET', '/v1/classes/c-ari/today')).status).toBe(403);
   });
 
   it('aynı Idempotency-Key ile gelen öğün kaydını bir kez işler', async () => {
     const transport = createMockTransport({ latencyMs: 0, now: () => NOW });
     const teacher = authed(transport, await signIn(transport, '+905550000002'));
     const entry = (amount: string) => ({ date: '2026-10-28', slot: 'IKINDI', entries: [{ childId: 'ch-ada', amount }] });
-    const path = '/v1/siniflar/c-kelebek/ogun-kayitlari';
+    const path = '/v1/classes/c-kelebek/meal-records';
 
     expect((await teacher('POST', path, entry('AZ'), { 'Idempotency-Key': 'k1' })).status).toBe(201);
     // Aynı anahtarla tekrar gönderim (ör. çevrimdışı kuyruğun yeniden denemesi) yeniden işlenmez.
     expect((await teacher('POST', path, entry('TAMAMI'), { 'Idempotency-Key': 'k1' })).status).toBe(201);
 
     const parent = authed(transport, await signIn(transport, '+905550000001'));
-    const feed = (await parent('GET', '/v1/cocuklar/ch-ada/akis')).body as { entries: { kind: string; slot?: string; amount?: string }[] };
+    const feed = (await parent('GET', '/v1/children/ch-ada/feed')).body as { entries: { kind: string; slot?: string; amount?: string }[] };
     const meals = feed.entries.filter((item) => item.kind === 'MEAL' && item.slot === 'IKINDI');
     expect(meals).toHaveLength(1);
     expect(meals[0]?.amount).toBe('AZ');
@@ -139,7 +139,7 @@ describe('mock sunucu: teslim alma', () => {
     const transport = createMockTransport({ latencyMs: 0, now: () => NOW });
     const parent = authed(transport, await signIn(transport, '+905550000001'));
     const teacher = authed(transport, await signIn(transport, '+905550000002'));
-    const created = await parent('POST', '/v1/teslim-talepleri', { childId: 'ch-ada', pickupPersonId: 'ap-ada-fatma', etaMinutes: 10 });
+    const created = await parent('POST', '/v1/pickup-requests', { childId: 'ch-ada', pickupPersonId: 'ap-ada-fatma', etaMinutes: 10 });
     return { parent, teacher, created };
   }
 
@@ -149,7 +149,7 @@ describe('mock sunucu: teslim alma', () => {
     expect(created.status).toBe(201);
     expect(request.pin).toMatch(/^\d{4}$/);
 
-    const queue = (await teacher('GET', '/v1/siniflar/c-kelebek/teslim-kuyrugu')).body as PickupRequest[];
+    const queue = (await teacher('GET', '/v1/classes/c-kelebek/pickup-queue')).body as PickupRequest[];
     expect(queue).toHaveLength(1);
     expect(queue[0]?.pin).toBeNull();
   });
@@ -158,7 +158,7 @@ describe('mock sunucu: teslim alma', () => {
     const transport = createMockTransport({ latencyMs: 0, now: () => NOW });
     const parent = authed(transport, await signIn(transport, '+905550000001'));
     for (const pickupPersonId of ['ap-ada-gul', 'ap-ada-murat']) {
-      const response = await parent('POST', '/v1/teslim-talepleri', { childId: 'ch-ada', pickupPersonId, etaMinutes: 10 });
+      const response = await parent('POST', '/v1/pickup-requests', { childId: 'ch-ada', pickupPersonId, etaMinutes: 10 });
       expect(errorCode(response)).toBe('validation');
     }
   });
@@ -166,10 +166,10 @@ describe('mock sunucu: teslim alma', () => {
   it('doğru kodla teslim eder ve veli akışına işler', async () => {
     const { parent, teacher, created } = await createPickup();
     const { id, pin } = created.body as PickupRequest;
-    const delivered = await teacher('POST', `/v1/teslim-talepleri/${id}/teslim`, { pin });
+    const delivered = await teacher('POST', `/v1/pickup-requests/${id}/handover`, { pin });
     expect((delivered.body as PickupRequest).status).toBe('TESLIM_EDILDI');
 
-    const feed = (await parent('GET', '/v1/cocuklar/ch-ada/akis')).body as { entries: { kind: string }[] };
+    const feed = (await parent('GET', '/v1/children/ch-ada/feed')).body as { entries: { kind: string }[] };
     expect(feed.entries.some((entry) => entry.kind === 'PICKUP')).toBe(true);
   });
 
@@ -179,10 +179,10 @@ describe('mock sunucu: teslim alma', () => {
     const wrong = pin === '0000' ? '1111' : '0000';
     const codes: (string | undefined)[] = [];
     for (let i = 0; i < 3; i += 1) {
-      codes.push(errorCode(await teacher('POST', `/v1/teslim-talepleri/${id}/teslim`, { pin: wrong })));
+      codes.push(errorCode(await teacher('POST', `/v1/pickup-requests/${id}/handover`, { pin: wrong })));
     }
     expect(codes).toEqual(['pin_invalid', 'pin_invalid', 'pickup_blocked']);
     // Doğru kod artık kabul edilmez.
-    expect(errorCode(await teacher('POST', `/v1/teslim-talepleri/${id}/teslim`, { pin }))).toBe('pickup_blocked');
+    expect(errorCode(await teacher('POST', `/v1/pickup-requests/${id}/handover`, { pin }))).toBe('pickup_blocked');
   });
 });

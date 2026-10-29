@@ -253,7 +253,7 @@ export function createMockTransport({ latencyMs = 250, now = Date.now }: MockTra
       return ok(me);
     }),
 
-    route('GET', '/v1/kurumlar/:kurumId/aydinlatma', true, ({ user, params: [kurumId] }) => {
+    route('GET', '/v1/organizations/:kurumId/privacy-notice', true, ({ user, params: [kurumId] }) => {
       if (kurumId !== KURUM.id || !isMemberOf(user, kurumId)) return fail(403, 'forbidden');
       return ok({
         kurumId,
@@ -266,20 +266,20 @@ export function createMockTransport({ latencyMs = 250, now = Date.now }: MockTra
       });
     }),
 
-    route('POST', '/v1/kurumlar/:kurumId/aydinlatma/:version/okundu', true, ({ user, params: [kurumId, version] }) => {
+    route('POST', '/v1/organizations/:kurumId/privacy-notice/:version/acknowledgement', true, ({ user, params: [kurumId, version] }) => {
       if (kurumId !== KURUM.id || !isMemberOf(user, kurumId)) return fail(403, 'forbidden');
       if (version !== NOTICE.version) return fail(409, 'conflict');
       acknowledgements.add(`${user.id}|${kurumId}|${version}`);
       return noContent();
     }),
 
-    route('GET', '/v1/cocuklar/:childId/rizalar', true, ({ user, params: [childId = ''] }) => {
+    route('GET', '/v1/children/:childId/consents', true, ({ user, params: [childId = ''] }) => {
       const child = children.get(childId);
       if (!child || !isGuardian(user, childId)) return fail(403, 'forbidden');
       return ok(consentsFor(child, user));
     }),
 
-    route('PUT', '/v1/cocuklar/:childId/rizalar', true, ({ user, params: [childId = ''], body }) => {
+    route('PUT', '/v1/children/:childId/consents', true, ({ user, params: [childId = ''], body }) => {
       const child = children.get(childId);
       if (!child || !isGuardian(user, childId)) return fail(403, 'forbidden');
       if (body.textVersion !== CONSENT_TEXT_VERSION) return fail(409, 'conflict');
@@ -301,15 +301,15 @@ export function createMockTransport({ latencyMs = 250, now = Date.now }: MockTra
       return ok(consentsFor(child, user));
     }),
 
-    route('GET', '/v1/cocuklar/:childId/akis', true, ({ user, params: [childId = ''], query }) => {
+    route('GET', '/v1/children/:childId/feed', true, ({ user, params: [childId = ''], query }) => {
       const child = children.get(childId);
       if (!child || !(isGuardian(user, childId) || isTeacherOf(user, child.classId))) return fail(403, 'forbidden');
-      const date = query.tarih ?? toLocalDateString(new Date(now()));
+      const date = query.date ?? toLocalDateString(new Date(now()));
       const entries = [...(feed.get(feedKey(childId, date)) ?? [])].sort((a, b) => a.at.localeCompare(b.at));
       return ok({ childId, date, entries });
     }),
 
-    route('GET', '/v1/siniflar/:classId/bugun', true, ({ user, params: [classId = ''] }) => {
+    route('GET', '/v1/classes/:classId/today', true, ({ user, params: [classId = ''] }) => {
       const klass = CLASSES.find((c) => c.id === classId);
       if (!klass || !isTeacherOf(user, classId)) return fail(403, 'forbidden');
       const classChildren: ClassChild[] = CHILDREN.filter((child) => child.classId === classId).map((child) => ({
@@ -322,7 +322,7 @@ export function createMockTransport({ latencyMs = 250, now = Date.now }: MockTra
       return ok({ classId, className: klass.name, date: toLocalDateString(new Date(now())), children: classChildren, menu: MENU });
     }),
 
-    route('POST', '/v1/siniflar/:classId/ogun-kayitlari', true, ({ user, params: [classId = ''], body }) => {
+    route('POST', '/v1/classes/:classId/meal-records', true, ({ user, params: [classId = ''], body }) => {
       if (!isTeacherOf(user, classId)) return fail(403, 'forbidden');
       const slot = body.slot as MealSlot;
       const entries = Array.isArray(body.entries) ? (body.entries as { childId?: unknown; amount?: unknown }[]) : [];
@@ -344,18 +344,18 @@ export function createMockTransport({ latencyMs = 250, now = Date.now }: MockTra
       return created({ saved: entries.length });
     }),
 
-    route('GET', '/v1/cocuklar/:childId/yetkili-kisiler', true, ({ user, params: [childId = ''] }) => {
+    route('GET', '/v1/children/:childId/authorized-pickup-people', true, ({ user, params: [childId = ''] }) => {
       if (!isGuardian(user, childId)) return fail(403, 'forbidden');
       return ok(persons[childId] ?? []);
     }),
 
-    route('GET', '/v1/cocuklar/:childId/teslim-talepleri/aktif', true, ({ user, params: [childId = ''] }) => {
+    route('GET', '/v1/children/:childId/pickup-requests/active', true, ({ user, params: [childId = ''] }) => {
       if (!isGuardian(user, childId)) return fail(403, 'forbidden');
       const active = pickups.filter((p) => p.childId === childId && isActivePickup(p)).at(-1);
       return ok(active ? pickupDto(active, user) : null);
     }),
 
-    route('POST', '/v1/teslim-talepleri', true, ({ user, body }) => {
+    route('POST', '/v1/pickup-requests', true, ({ user, body }) => {
       const childId = String(body.childId ?? '');
       const etaMinutes = Number(body.etaMinutes);
       if (!isGuardian(user, childId)) return fail(403, 'forbidden');
@@ -382,7 +382,7 @@ export function createMockTransport({ latencyMs = 250, now = Date.now }: MockTra
       return created(pickupDto(pickup, user));
     }),
 
-    route('GET', '/v1/siniflar/:classId/teslim-kuyrugu', true, ({ user, params: [classId = ''] }) => {
+    route('GET', '/v1/classes/:classId/pickup-queue', true, ({ user, params: [classId = ''] }) => {
       if (!isTeacherOf(user, classId)) return fail(403, 'forbidden');
       const queue = pickups
         .filter((p) => children.get(p.childId)?.classId === classId && isActivePickup(p) && p.status !== 'TESLIM_EDILDI')
@@ -391,7 +391,7 @@ export function createMockTransport({ latencyMs = 250, now = Date.now }: MockTra
       return ok(queue);
     }),
 
-    route('POST', '/v1/teslim-talepleri/:id/hazirlaniyor', true, ({ user, params: [id] }) => {
+    route('POST', '/v1/pickup-requests/:id/preparing', true, ({ user, params: [id] }) => {
       const pickup = pickups.find((p) => p.id === id);
       const child = pickup ? children.get(pickup.childId) : undefined;
       if (!pickup || !child || !isTeacherOf(user, child.classId)) return fail(403, 'forbidden');
@@ -400,7 +400,7 @@ export function createMockTransport({ latencyMs = 250, now = Date.now }: MockTra
       return ok(pickupDto(pickup, user));
     }),
 
-    route('POST', '/v1/teslim-talepleri/:id/teslim', true, ({ user, params: [id], body }) => {
+    route('POST', '/v1/pickup-requests/:id/handover', true, ({ user, params: [id], body }) => {
       const pickup = pickups.find((p) => p.id === id);
       const child = pickup ? children.get(pickup.childId) : undefined;
       if (!pickup || !child || !isTeacherOf(user, child.classId)) return fail(403, 'forbidden');
@@ -428,11 +428,11 @@ export function createMockTransport({ latencyMs = 250, now = Date.now }: MockTra
       return ok(pickupDto(pickup, user));
     }),
 
-    route('GET', '/v1/kvkk/basvurular', true, ({ user }) =>
+    route('GET', '/v1/privacy/requests', true, ({ user }) =>
       ok(kvkkRequests.filter((entry) => entry.userId === user.id).map((entry) => entry.request)),
     ),
 
-    route('POST', '/v1/kvkk/basvurular', true, ({ user, body }) => {
+    route('POST', '/v1/privacy/requests', true, ({ user, body }) => {
       const kurumId = String(body.kurumId ?? '');
       const type = body.type as KvkkRequestType;
       const description = typeof body.description === 'string' ? body.description : '';
@@ -451,12 +451,12 @@ export function createMockTransport({ latencyMs = 250, now = Date.now }: MockTra
       return created(request);
     }),
 
-    route('POST', '/v1/kvkk/veri-dokumu', true, ({ user, body }) => {
+    route('POST', '/v1/privacy/data-exports', true, ({ user, body }) => {
       if (!isGuardian(user, String(body.childId ?? ''))) return fail(403, 'forbidden');
       return json(202, { requestId: randomToken(), linkValidHours: 24 });
     }),
 
-    route('POST', '/v1/denetim/olaylar', true, ({ user, body }) => {
+    route('POST', '/v1/audit/events', true, ({ user, body }) => {
       auditEvents.push({ ...body, userId: user.id, receivedAt: isoNow() });
       return noContent();
     }),

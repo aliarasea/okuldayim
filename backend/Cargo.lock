@@ -975,11 +975,16 @@ name = "okuldayim-api"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64 0.22.1",
+ "hmac",
+ "rand 0.8.8",
  "redis",
  "reqwest",
+ "ring",
  "secrecy",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "thiserror",
  "tokio",
@@ -2160,6 +2165,7 @@ checksum = "4a0e2d11620c50695fe12bbbfde96b3477fe606e7284c22d505c12ce51214514"
 dependencies = [
  "getrandom 0.4.3",
  "js-sys",
+ "serde_core",
  "wasm-bindgen",
 ]
 
